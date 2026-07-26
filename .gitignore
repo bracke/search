@@ -1,0 +1,22 @@
+/obj/
+/bin/
+/alire/
+/config/
+/tools/obj/
+/tools/bin/
+/tools/alire/
+/tools/config/
+/search_tests/obj/
+/search_tests/bin/
+/search_tests/alire/
+/search_tests/config/
+/search_tests/*_fixture/
+/examples/obj/
+/examples/bin/
+/examples/alire/
+/examples/config/
+
+# Bundled i18n locale data (generated, copied from the i18n dependency)
+/share/i18n/
+/tools/i18n_bundle/bin/
+/tools/i18n_bundle/obj/

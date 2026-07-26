@@ -1,0 +1,20 @@
+with "../search.gpr";
+
+project Examples is
+   for Source_Dirs use (".");
+   for Object_Dir use "obj";
+   for Create_Missing_Dirs use "True";
+   for Exec_Dir use "bin";
+   for Main use
+     ("filename_search.adb",
+      "path_search.adb",
+      "content_search.adb",
+      "regex_search.adb",
+      "gitignore_filtering.adb",
+      "multiple_roots.adb",
+      "saved_searches.adb",
+      "exporting.adb");
+   package Compiler is
+      for Default_Switches ("Ada") use ("-gnat2022", "-gnatyM120", "-gnatX", "-gnatwU");
+   end Compiler;
+end Examples;

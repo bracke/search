@@ -1,0 +1,62 @@
+name = "search_tests"
+description = "AUnit and release validation suite for search"
+version = "0.1.0-dev"
+
+authors = ["Bent Bracke"]
+maintainers = ["Bent Bracke <bent@bracke.dk>"]
+maintainers-logins = ["bracke"]
+licenses = "MIT OR Apache-2.0 WITH LLVM-exception"
+tags = ["test", "suite"]
+
+executables = ["search_tests", "search_release_check"]
+
+[[depends-on]]
+gnat_native = "=15.2.1"
+
+[[depends-on]]
+search = "*"
+
+[[depends-on]]
+aunit = "^26.0.0"
+
+[[depends-on]]
+project_tools = "*"
+
+[[pins]]
+search = { path = ".." }
+
+[[pins]]
+project_tools = { path = "../../project_tools" }
+
+[[pins]]
+files = { path = "../../files" }
+
+[[pins]]
+guikit = { path = "../../guikit" }
+
+[[pins]]
+i18n = { path = "../../i18n" }
+
+[[pins]]
+messages = { path = "../../messages" }
+
+[[pins]]
+regexp = { path = "../../regexp" }
+
+[[pins]]
+versionlib = { path = "../../versionlib" }
+
+[[pins]]
+hostkit = { path = "../../hostkit" }
+
+[[pins]]
+textrender = { path = "../../textrender" }
+
+[[pins]]
+zlib = { path = "../../zlib" }
+
+[[pins]]
+cryptolib = { path = "../../cryptolib" }
+
+[build-profiles]
+"*" = "development"

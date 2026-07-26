@@ -1,0 +1,20 @@
+name = "search_examples"
+description = "Examples for search"
+version = "0.1.0-dev"
+
+executables = [
+  "filename_search",
+  "path_search",
+  "content_search",
+  "regex_search",
+  "gitignore_filtering",
+  "multiple_roots",
+  "saved_searches",
+  "exporting"
+]
+
+[[depends-on]]
+search = "*"
+
+[[pins]]
+search = { path = ".." }

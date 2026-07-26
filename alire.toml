@@ -1,0 +1,95 @@
+name = "search"
+description = "Desktop filesystem search application"
+version = "0.1.0-dev"
+
+authors = ["Bent Bracke"]
+maintainers = ["Bent Bracke <bent@bracke.dk>"]
+maintainers-logins = ["bracke"]
+licenses = "MIT OR Apache-2.0 WITH LLVM-exception"
+website = "https://github.com/bracke/search"
+tags = ["search", "desktop", "filesystem"]
+
+executables = ["search"]
+
+[[depends-on]]
+gnat_native = "=15.2.1"
+
+[[depends-on]]
+files = "*"
+
+[[depends-on]]
+guikit = "*"
+
+[[depends-on]]
+i18n = "*"
+
+[[depends-on]]
+messages = "*"
+
+[[depends-on]]
+regexp = "*"
+
+[[depends-on]]
+versionlib = "*"
+
+[[depends-on]]
+project_tools = "*"
+
+[[pins]]
+files = { path = "../files" }
+
+[[pins]]
+guikit = { path = "../guikit" }
+
+[[pins]]
+i18n = { path = "../i18n" }
+
+[[pins]]
+messages = { path = "../messages" }
+
+[[pins]]
+regexp = { path = "../regexp" }
+
+[[pins]]
+versionlib = { path = "../versionlib" }
+
+[[pins]]
+project_tools = { path = "../project_tools" }
+
+[[pins]]
+hostkit = { path = "../hostkit" }
+
+[[pins]]
+textrender = { path = "../textrender" }
+
+[[pins]]
+zlib = { path = "../zlib" }
+
+[[pins]]
+cryptolib = { path = "../cryptolib" }
+
+[[depends-on]]
+df_vulkan = "~0.1.0"
+
+[[depends-on]]
+openglada_glfw = "~0.9.0"
+
+[[depends-on]]
+utilada = "^2.9.0"
+
+# Bundle i18n's generated locale data into share/i18n after every build. search
+# renders its catalog through the messages crate, which serves formatting from
+# those files at runtime, so a deployed bin/search must ship them (found at
+# Exe/../share/i18n). bundle_i18n_data is a standalone Ada tool (tools/i18n_bundle)
+# kept out of the app's own bin so it is never installed; build it, then run it.
+# Both steps are plain executables -- no shell.
+[[actions]]
+type = "post-build"
+command = ["gprbuild", "-P", "tools/i18n_bundle/bundle_i18n_data.gpr", "-p", "-q"]
+
+[[actions]]
+type = "post-build"
+command = ["tools/i18n_bundle/bin/bundle_i18n_data"]
+
+[build-profiles]
+"*" = "development"
