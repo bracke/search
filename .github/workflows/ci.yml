@@ -135,6 +135,7 @@ jobs:
 
           [ -n "$synced" ] || { echo "::error::could not install the MSYS2 packages"; exit 1; }
 
+          echo "CPATH=C:/msys64/mingw64/include" >> "$GITHUB_ENV"
           echo "LIBRARY_PATH=C:/msys64/mingw64/lib" >> "$GITHUB_ENV"
           echo "C:\msys64\mingw64\bin" >> "$GITHUB_PATH"
 
