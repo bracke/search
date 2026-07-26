@@ -1,0 +1,102 @@
+name: ci
+
+# Builds search and runs its AUnit suite on Linux.
+#
+# search pins its sibling crates by local path in alire.toml and pulls in more
+# transitively (files, guikit, textrender, hostkit, versionlib, regexp,
+# messages, i18n, project_tools, httpclient, sshlib, zlib, cryptolib). CI clones
+# every one of them next to the checkout; they must exist as fetchable GitHub
+# repos under the same owner.
+#
+# search is a GUI application (files + guikit render through Vulkan + GLFW), so
+# the Linux job installs the Vulkan/GLFW/GTK stack even though the suite itself
+# is headless. Building i18n runs its pre-build regeneration (cldr tools:
+# httpclient, zlib, project_tools, cryptolib) and fetches CLDR/UCD data, which
+# needs OpenSSL headers. The build's post-build action bundles i18n's generated
+# locale data into share/i18n via tools/i18n_bundle.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: build and test (ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: search }
+      - uses: actions/checkout@v4
+        with: { repository: "${{ github.repository_owner }}/files", path: files }
+      - uses: actions/checkout@v4
+        with: { repository: "${{ github.repository_owner }}/guikit", path: guikit }
+      - uses: actions/checkout@v4
+        with: { repository: "${{ github.repository_owner }}/textrender", path: textrender }
+      - uses: actions/checkout@v4
+        with: { repository: "${{ github.repository_owner }}/hostkit", path: hostkit }
+      - uses: actions/checkout@v4
+        with: { repository: "${{ github.repository_owner }}/versionlib", path: versionlib }
+      - uses: actions/checkout@v4
+        with: { repository: "${{ github.repository_owner }}/regexp", path: regexp }
+      - uses: actions/checkout@v4
+        with: { repository: "${{ github.repository_owner }}/messages", path: messages }
+      - uses: actions/checkout@v4
+        with: { repository: "${{ github.repository_owner }}/i18n", path: i18n }
+      - uses: actions/checkout@v4
+        with: { repository: "${{ github.repository_owner }}/project_tools", path: project_tools }
+      - uses: actions/checkout@v4
+        with: { repository: "${{ github.repository_owner }}/httpclient", path: httpclient }
+      - uses: actions/checkout@v4
+        with: { repository: "${{ github.repository_owner }}/sshlib", path: sshlib }
+      - uses: actions/checkout@v4
+        with: { repository: "${{ github.repository_owner }}/zlib", path: zlib }
+      - uses: actions/checkout@v4
+        with: { repository: "${{ github.repository_owner }}/cryptolib", path: cryptolib }
+
+      - name: Set up Alire
+        uses: alire-project/setup-alire@v5
+        with:
+          toolchain: gnat_native=15.2.1 gprbuild
+
+      - name: Install system libraries
+        # OpenSSL headers for httpclient's TLS bridge (pulled in via versionlib)
+        # and for i18n's CLDR data fetch; the Vulkan/GLFW/GTK stack for the
+        # files + guikit render path that search links against.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libssl-dev \
+            libvulkan-dev \
+            libgdk-pixbuf-2.0-dev \
+            libglib2.0-dev \
+            libgtk-3-dev \
+            libxcursor-dev \
+            libxxf86vm-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxi-dev
+
+      - name: Build search
+        # Regenerates the i18n data and bundles it into share/i18n (post-build).
+        working-directory: search
+        run: alr --non-interactive build
+
+      - name: Verify the i18n locale data was bundled
+        working-directory: search
+        run: test -f share/i18n/formats.i18ndata
+
+      - name: Build the search test suite
+        working-directory: search/search_tests
+        run: alr --non-interactive build
+
+      - name: Run the search test suite
+        working-directory: search/search_tests
+        run: alr exec -- ./bin/search_tests
+
+      - name: Run the release check
+        working-directory: search/search_tests
+        run: alr exec -- ./bin/search_release_check
