@@ -56,6 +56,10 @@ jobs:
         with: { repository: "${{ github.repository_owner }}/zlib", path: zlib }
       - uses: actions/checkout@v4
         with: { repository: "${{ github.repository_owner }}/cryptolib", path: cryptolib }
+      - uses: actions/checkout@v4
+        with: { repository: "${{ github.repository_owner }}/tarlib", path: tarlib }
+      - uses: actions/checkout@v4
+        with: { repository: "${{ github.repository_owner }}/awklib", path: awklib }
 
       - name: Set up Alire
         uses: alire-project/setup-alire@v5
