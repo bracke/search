@@ -32,37 +32,37 @@ jobs:
         # x86_64 image Actions offers.
         os: [ubuntu-latest, macos-15-intel, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { path: search }
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { repository: "${{ github.repository_owner }}/files", path: files }
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { repository: "${{ github.repository_owner }}/guikit", path: guikit }
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { repository: "${{ github.repository_owner }}/textrender", path: textrender }
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { repository: "${{ github.repository_owner }}/hostkit", path: hostkit }
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { repository: "${{ github.repository_owner }}/versionlib", path: versionlib }
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { repository: "${{ github.repository_owner }}/regexp", path: regexp }
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { repository: "${{ github.repository_owner }}/messages", path: messages }
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { repository: "${{ github.repository_owner }}/i18n", path: i18n }
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { repository: "${{ github.repository_owner }}/project_tools", path: project_tools }
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { repository: "${{ github.repository_owner }}/httpclient", path: httpclient }
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { repository: "${{ github.repository_owner }}/sshlib", path: sshlib }
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { repository: "${{ github.repository_owner }}/zlib", path: zlib }
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { repository: "${{ github.repository_owner }}/cryptolib", path: cryptolib }
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { repository: "${{ github.repository_owner }}/tarlib", path: tarlib }
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { repository: "${{ github.repository_owner }}/awklib", path: awklib }
 
       - name: Install system libraries (Linux)
@@ -140,7 +140,7 @@ jobs:
           echo "C:\msys64\mingw64\bin" >> "$GITHUB_PATH"
 
       - name: Set up Alire
-        uses: alire-project/setup-alire@v5
+        uses: alire-project/setup-alire@v6
         with:
           toolchain: gnat_native=15.2.1 gprbuild
 
