@@ -12,7 +12,7 @@ project Search is
    for Object_Dir use "obj/" & Search_Config.Build_Profile;
    for Create_Missing_Dirs use "True";
    for Exec_Dir use "bin";
-   for Main use ("search-main.adb");
+   for Main use ("search-main.adb", "search-desktop.adb");
 
    package Compiler is
       for Default_Switches ("Ada") use
@@ -45,6 +45,7 @@ project Search is
 
    package Builder is
       for Executable ("search-main.adb") use "search";
+      for Executable ("search-desktop.adb") use "search-desktop";
    end Builder;
 
    package Install is

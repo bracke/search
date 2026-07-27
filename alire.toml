@@ -9,7 +9,7 @@ licenses = "MIT OR Apache-2.0 WITH LLVM-exception"
 website = "https://github.com/bracke/search"
 tags = ["search", "desktop", "filesystem"]
 
-executables = ["search"]
+executables = ["search", "search-desktop"]
 
 [[depends-on]]
 gnat_native = "=15.2.1"
