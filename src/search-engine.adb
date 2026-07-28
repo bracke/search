@@ -145,14 +145,17 @@ package body Search.Engine is
             return;
          end if;
 
+         --  Resolve the node's kind once: the gitignore test and the match logic
+         --  below both need it, and Ada.Directories.Kind is a stat -- previously
+         --  a gitignore-aware walk paid for two stats of the same path per node.
+         Kind := Ada.Directories.Kind (Path);
+
          if Search.Queries.Gitignore_Aware (Query) and then Rel'Length > 0 then
-            Ignored := Standard.Version.Ignore.Match (Rules, Rel, Ada.Directories.Kind (Path) = Ada.Directories.Directory);
+            Ignored := Standard.Version.Ignore.Match (Rules, Rel, Kind = Ada.Directories.Directory);
             if Ignored.Has_Match and then Ignored.Is_Ignored then
                return;
             end if;
          end if;
-
-         Kind := Ada.Directories.Kind (Path);
          if Kind = Ada.Directories.Ordinary_File or else Kind = Ada.Directories.Directory then
             if Search.Queries.Mode (Query) in Search.Types.Filename_Mode | Search.Types.Combined_Mode then
                Name_Match := Text_Matches (Base_Name (Path), Query, Regex);
