@@ -2,6 +2,8 @@ with Search.Queries;
 with Search.Types;
 
 procedure Filename_Search is
+   use type Search.Types.Search_Mode;
+
    Builder : Search.Queries.Query_Builder := Search.Queries.New_Builder;
    Query   : Search.Queries.Query;
 begin

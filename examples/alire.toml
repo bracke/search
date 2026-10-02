@@ -1,6 +1,7 @@
 name = "search_examples"
 description = "Examples for search"
 version = "0.1.0-dev"
+project-files = ["examples.gpr"]
 
 executables = [
   "filename_search",
