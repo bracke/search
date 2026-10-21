@@ -59,6 +59,9 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew update
+          # The Intel image can still have openssl@1.1 linked. Homebrew upgrades
+          # openssl@3 while installing gdk-pixbuf and otherwise fails at linking.
+          brew unlink openssl@1.1 || true
           # MoltenVK provides the Vulkan loader/ICD; gdk-pixbuf pulls in glib.
           # openssl@3: httpclient's TLS bridge (i18n's download_tzdb links it).
           brew install vulkan-headers vulkan-loader molten-vk glfw gdk-pixbuf openssl@3
@@ -156,6 +159,7 @@ jobs:
       # translated into a word the program rejects. The rule lives with the
       # catalogue format, in the messages crate.
       - name: Check the message catalogue
+        shell: bash
         working-directory: messages/tools/catalog_check
         run: |
           alr --non-interactive build
