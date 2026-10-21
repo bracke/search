@@ -58,10 +58,17 @@ jobs:
       - name: Install system libraries (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew update
-          # The Intel image can still have openssl@1.1 linked. Homebrew upgrades
-          # openssl@3 while installing gdk-pixbuf and otherwise fails at linking.
+          # Use the runner image's coherent Homebrew snapshot, as files does. A
+          # brew update moved gdk-pixbuf onto openssl@4, which has no Intel bottle,
+          # and building it from source ran past the job timeout.
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          # The Intel image can keep a dangling openssl@1.1 link that makes an
+          # otherwise successful openssl upgrade report failure.
           brew unlink openssl@1.1 || true
+          if [ -L /usr/local/bin/openssl ] &&
+             [[ "$(readlink /usr/local/bin/openssl)" == *openssl@1.1* ]]; then
+            unlink /usr/local/bin/openssl
+          fi
           # MoltenVK provides the Vulkan loader/ICD; gdk-pixbuf pulls in glib.
           # openssl@3: httpclient's TLS bridge (i18n's download_tzdb links it).
           brew install vulkan-headers vulkan-loader molten-vk glfw gdk-pixbuf openssl@3
