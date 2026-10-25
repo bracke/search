@@ -1,6 +1,7 @@
 /obj/
 /bin/
-/alire/
+/alire/*
+!/alire/alire.lock
 /config/
 /tools/obj/
 /tools/bin/
@@ -8,12 +9,14 @@
 /tools/config/
 /search_tests/obj/
 /search_tests/bin/
-/search_tests/alire/
+/search_tests/alire/*
+!/search_tests/alire/alire.lock
 /search_tests/config/
 /search_tests/*_fixture/
 /examples/obj/
 /examples/bin/
-/examples/alire/
+/examples/alire/*
+!/examples/alire/alire.lock
 /examples/config/
 
 # Bundled i18n locale data (generated, copied from the i18n dependency)

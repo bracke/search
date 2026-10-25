@@ -1,0 +1,509 @@
+# THIS FILE IS GENERATED. DO NOT EDIT.
+
+[solution]
+[solution.context]
+solved = true
+[[solution.state]]
+crate = "a11y"
+fulfilment = "linked"
+pinned = false
+transitivity = "direct"
+versions = "~0.1.0-dev"
+[solution.state.link]
+lockfiled = true
+path = "../../a11ykit"
+[[solution.state]]
+crate = "aunit"
+fulfilment = "solved"
+pinned = false
+transitivity = "direct"
+versions = "^26.0.0"
+[solution.state.release]
+authors = [
+"AdaCore",
+]
+description = "Ada unit test framework"
+licenses = "GPL-3.0-or-later WITH GCC-exception-3.1"
+maintainers = [
+"chouteau@adacore.com",
+"sagaert@adacore.com",
+]
+maintainers-logins = [
+"Fabien-Chouteau",
+"AldanTanneo",
+]
+name = "aunit"
+project-files = [
+"lib/gnat/aunit.gpr",
+]
+tags = [
+"unit",
+"test",
+"unit-test",
+]
+version = "26.0.0"
+[solution.state.release.configuration]
+auto_gpr_with = true
+disabled = true
+generate_ada = true
+generate_c = true
+generate_gpr = true
+output_dir = "config"
+[solution.state.release.gpr-externals]
+AUNIT_BUILD_MODE = [
+"Devel",
+"Install",
+]
+AUNIT_RUNTIME = [
+"full",
+"zfp",
+"zfp-cross",
+"ravenscar",
+"ravenscar-cert",
+"cert",
+]
+[solution.state.release.origin]
+hashes = [
+"sha512:b882e96a4b2cbc2d0d3838e14f2c7b6e576d6d7ccf88fe3562b1fbca61a2ebfd4e8b3379dd5c3fb3140949cda69526c8696fe3b7a6c6748fe93f116213276b39",
+]
+url = "https://github.com/AdaCore/aunit/archive/refs/tags/v26.0.0.zip"
+[[solution.state]]
+crate = "cryptolib"
+fulfilment = "linked"
+pinned = false
+transitivity = "direct"
+versions = "~0.1.0-dev"
+[solution.state.link]
+lockfiled = true
+path = "../../cryptolib"
+[[solution.state]]
+crate = "df_vulkan"
+fulfilment = "solved"
+pinned = false
+transitivity = "indirect"
+versions = "~0.1.0"
+[solution.state.release]
+authors = [
+"The Dark Factory Ltd",
+]
+description = "Generated Ada binding to Vulkan, with a SPARK-verified safety layer"
+licenses = "Apache-2.0"
+maintainers = [
+"Tony Gair <tony.gair@thedarkfactory.co.uk>",
+]
+maintainers-logins = [
+"tonygair",
+]
+name = "df_vulkan"
+project-files = [
+"df_vulkan.gpr",
+]
+tags = [
+"vulkan",
+"graphics",
+"gpu",
+"binding",
+"spark",
+]
+version = "0.1.0"
+website = "https://github.com/the-dark-factory/vulkan-ada"
+[solution.state.release.origin]
+commit = "d3fac5d7df41b91c5a989edf1f55b6a1162b90ad"
+url = "git+https://github.com/the-dark-factory/vulkan-ada.git"
+[[solution.state]]
+crate = "files"
+fulfilment = "linked"
+pinned = false
+transitivity = "direct"
+versions = "~0.1.0-dev"
+[solution.state.link]
+lockfiled = true
+path = "../../files"
+[[solution.state]]
+crate = "gnat_native"
+fulfilment = "solved"
+pinned = false
+transitivity = "direct"
+versions = "=15.2.1"
+[solution.state.release]
+auto-gpr-with = false
+description = "The GNAT Ada compiler - Native"
+licenses = "GPL-3.0-or-later AND GPL-3.0-or-later WITH GCC-exception-3.1"
+maintainers = [
+"Fabien Chouteau <chouteau@adacore.com>",
+"CÃ©sar Sagaert <sagaert@adacore.com>",
+]
+maintainers-logins = [
+"Fabien-Chouteau",
+"AldanTanneo",
+]
+name = "gnat_native"
+provides = [
+"gnat=15.2.1",
+]
+version = "15.2.1"
+website = "https://github.com/alire-project/GNAT-FSF-builds"
+[solution.state.release.configuration]
+auto_gpr_with = true
+disabled = true
+generate_ada = true
+generate_c = true
+generate_gpr = true
+output_dir = "config"
+[solution.state.release.environment]
+[solution.state.release.environment.LD_LIBRARY_PATH]
+prepend = "${CRATE_ROOT}/lib64"
+[solution.state.release.environment.LD_RUN_PATH]
+prepend = "${CRATE_ROOT}/lib64"
+[solution.state.release.environment.LIBRARY_PATH]
+prepend = "${CRATE_ROOT}/lib64"
+[solution.state.release.environment.PATH]
+prepend = "${CRATE_ROOT}/bin"
+[solution.state.release.origin]
+binary = true
+hashes = [
+"sha256:4640d4b369833947ab1a156753f4db0ecd44b0f14410b5b2bc2a14df496604bb",
+]
+url = "https://github.com/alire-project/GNAT-FSF-builds/releases/download/gnat-15.2.0-1/gnat-x86_64-linux-15.2.0-1.tar.gz"
+[[solution.state]]
+crate = "guikit"
+fulfilment = "linked"
+pinned = false
+transitivity = "direct"
+versions = "~0.1.0-dev"
+[solution.state.link]
+lockfiled = true
+path = "../../guikit"
+[[solution.state]]
+crate = "hostkit"
+fulfilment = "linked"
+pinned = false
+transitivity = "direct"
+versions = "~0.1.0-dev"
+[solution.state.link]
+lockfiled = true
+path = "../../hostkit"
+[[solution.state]]
+crate = "httpclient"
+fulfilment = "linked"
+pinned = false
+transitivity = "direct"
+versions = "^1.0.0"
+[solution.state.link]
+lockfiled = true
+path = "../../httpclient"
+[[solution.state]]
+crate = "humanize"
+fulfilment = "linked"
+pinned = false
+transitivity = "indirect"
+versions = "^0.5.0"
+[solution.state.link]
+lockfiled = true
+path = "../../humanize"
+[[solution.state]]
+crate = "i18n"
+fulfilment = "linked"
+pinned = false
+transitivity = "direct"
+versions = "^1.1.0"
+[solution.state.link]
+lockfiled = true
+path = "../../i18n"
+[[solution.state]]
+crate = "libglfw3"
+fulfilment = "solved"
+pinned = false
+transitivity = "indirect"
+versions = "^3"
+[solution.state.release]
+description = "Portable library for OpenGL, window and input"
+maintainers = [
+"alejandro@mosteo.com",
+]
+maintainers-logins = [
+"mosteo",
+]
+name = "libglfw3"
+notes = "Provided by system package: libglfw3-dev"
+version = "3.3.10"
+[solution.state.release.origin]
+url = "system:libglfw3-dev"
+[[solution.state]]
+crate = "libx11"
+fulfilment = "solved"
+pinned = false
+transitivity = "indirect"
+versions = "^1"
+[solution.state.release]
+description = "X11 client-side library"
+maintainers = [
+"alejandro@mosteo.com",
+]
+maintainers-logins = [
+"mosteo",
+]
+name = "libx11"
+notes = "Provided by system package: libx11-dev"
+version = "1.8.7"
+[solution.state.release.origin]
+url = "system:libx11-dev"
+[[solution.state]]
+crate = "messages"
+fulfilment = "linked"
+pinned = false
+transitivity = "direct"
+versions = "~0.1.0"
+[solution.state.link]
+lockfiled = true
+path = "../../messages"
+[[solution.state]]
+crate = "openglada"
+fulfilment = "solved"
+pinned = false
+transitivity = "indirect"
+versions = "~0.9.0"
+[solution.state.release]
+authors = [
+"Felix Krause",
+]
+description = "Thick Ada binding for OpenGL"
+licenses = "MIT"
+maintainers = [
+"Felix Krause <contact@flyx.org>",
+]
+maintainers-logins = [
+"flyx",
+]
+name = "openglada"
+project-files = [
+"opengl.gpr",
+]
+tags = [
+"opengl",
+"binding",
+"rendering",
+"graphics",
+]
+version = "0.9.0"
+website = "http://flyx.github.io/OpenGLAda/"
+[solution.state.release.gpr-externals]
+Auto_Exceptions = [
+"enabled",
+"disabled",
+]
+Mode = [
+"debug",
+"release",
+]
+[solution.state.release.gpr-set-externals]
+Windowing_System = "x11"
+[solution.state.release.origin]
+hashes = [
+"sha512:4deb7effa92ea06c1fc9595700223b8169a85c15c4caf78221d2cfa95205260b5ba6d132d070b3f25d07549a6c9a8cde3b6405631a7d1ff487af8292c44a10e2",
+]
+url = "https://github.com/flyx/OpenGLAda/releases/download/v0.9.0/openglada-0.9.0.tgz"
+[[solution.state.release.depends-on]]
+libx11 = "^1"
+[[solution.state]]
+crate = "openglada_glfw"
+fulfilment = "solved"
+pinned = false
+transitivity = "indirect"
+versions = "~0.9.0"
+[solution.state.release]
+authors = [
+"Felix Krause",
+]
+description = "GLFW binding for use with OpenGLAda"
+licenses = "MIT"
+maintainers = [
+"Felix Krause <contact@flyx.org>",
+]
+maintainers-logins = [
+"flyx",
+]
+name = "openglada_glfw"
+project-files = [
+"opengl-glfw.gpr",
+]
+tags = [
+"opengl",
+"glfw",
+"binding",
+"gui",
+]
+version = "0.9.0"
+website = "http://flyx.github.io/OpenGLAda/"
+[solution.state.release.origin]
+hashes = [
+"sha512:fc25165caf510898d8c804b0ca4d8f763d49e0bd144ac70a2547f935ee90804b6ea5a1389eee08bb5528546f87eedb5b4e5884360a3a562a57338acea95f0e91",
+]
+url = "https://github.com/flyx/OpenGLAda/releases/download/v0.9.0/openglada_glfw-0.9.0.tgz"
+[[solution.state.release.depends-on]]
+libglfw3 = "^3"
+openglada = "~0.9.0"
+[[solution.state]]
+crate = "project_tools"
+fulfilment = "linked"
+pinned = false
+transitivity = "direct"
+versions = "*"
+[solution.state.link]
+lockfiled = true
+path = "../../project_tools"
+[[solution.state]]
+crate = "regexp"
+fulfilment = "linked"
+pinned = false
+transitivity = "direct"
+versions = "~0.1.0-dev"
+[solution.state.link]
+lockfiled = true
+path = "../../regexp"
+[[solution.state]]
+crate = "search"
+fulfilment = "linked"
+pinned = false
+transitivity = "direct"
+versions = "*"
+[solution.state.link]
+lockfiled = true
+path = ".."
+[[solution.state]]
+crate = "ssh_lib"
+fulfilment = "linked"
+pinned = false
+transitivity = "direct"
+versions = "^1.0.0"
+[solution.state.link]
+lockfiled = true
+path = "../../sshlib"
+[[solution.state]]
+crate = "ssllib"
+fulfilment = "linked"
+pinned = false
+transitivity = "direct"
+versions = "~0.1.0-dev"
+[solution.state.link]
+lockfiled = true
+path = "../../ssllib"
+[[solution.state]]
+crate = "textrender"
+fulfilment = "linked"
+pinned = false
+transitivity = "direct"
+versions = "^1.0.0"
+[solution.state.link]
+lockfiled = true
+path = "../../textrender"
+[[solution.state]]
+crate = "truststores"
+fulfilment = "linked"
+pinned = false
+transitivity = "direct"
+versions = "~0.1.0-dev"
+[solution.state.link]
+lockfiled = true
+path = "../../truststores"
+[[solution.state]]
+crate = "utilada"
+fulfilment = "solved"
+pinned = false
+transitivity = "indirect"
+versions = "^2.9.0"
+[solution.state.release]
+authors = [
+"Stephane.Carrez@gmail.com",
+]
+description = "Utility Library with streams, processes, logs, serialization, encoders"
+licenses = "Apache-2.0"
+long-description = "[![Build Status](https://img.shields.io/endpoint?url=https://porion.vacs.fr/porion/api/v1/projects/ada-util/badges/build.json)](https://porion.vacs.fr/porion/projects/view/ada-util/summary)\n[![Test Status](https://img.shields.io/endpoint?url=https://porion.vacs.fr/porion/api/v1/projects/ada-util/badges/tests.json)](https://porion.vacs.fr/porion/projects/view/ada-util/xunits)\n[![Coverage](https://img.shields.io/endpoint?url=https://porion.vacs.fr/porion/api/v1/projects/ada-util/badges/coverage.json)](https://porion.vacs.fr/porion/projects/view/ada-util/summary)\n[![Documentation Status](https://readthedocs.org/projects/ada-util/badge/?version=latest)](https://ada-util.readthedocs.io/en/latest/?badge=latest)\n\nThis Ada library contains various utility packages for building\nAda applications.  This includes:\n\n* A logging framework close to Java log4j framework,\n* Support for INI and property files,\n* A serialization/deserialization framework for XML, JSON, CSV, Forms\n* Ada beans framework,\n* Encoding/decoding framework (Base16, Base32, Base64, SHA, HMAC-SHA, AES-256),\n* A composing stream framework (raw, files, buffers, pipes, sockets, encryption, decryption, LZMA compression, LZMA decompression),\n* Several concurrency tools (reference counters, counters, pools, fifos, arrays),\n* Process creation and pipes,\n* Support for loading shared libraries (on Windows or Unix),\n* HTTP client library on top of CURL or AWS.\n\n# Documentation\n\n* [Ada Utility Library Programmer's Guide](https://ada-util.readthedocs.io/en/latest/) [PDF](https://github.com/stcarrez/ada-util/blob/master/docs/utilada-book.pdf)\n* [IO stream composition and serialization with Ada Utility Library](https://blog.vacs.fr/vacs/blogs/post.html?post=2022/03/05/IO-stream-composition-and-serialization-with-Ada-Utility-Library)\n* [Easy reading and writing files with Ada Utility Library](https://blog.vacs.fr/vacs/blogs/post.html?post=2020/08/09/Easy-reading-and-writing-files-with-Ada-Utility-Library)\n* [Process creation in Java and Ada](https://blog.vacs.fr/vacs/blogs/post.html?post=2012/03/16/Process-creation-in-Java-and-Ada)\n\n"
+maintainers = [
+"Stephane.Carrez@gmail.com",
+]
+maintainers-logins = [
+"stcarrez",
+]
+name = "utilada"
+project-files = [
+"utilada_conf.gpr",
+"utilada_core.gpr",
+"utilada_base.gpr",
+"utilada_sys.gpr",
+]
+tags = [
+"logging",
+"processes",
+"streams",
+"json",
+"beans",
+"encoders",
+"decoders",
+]
+version = "2.9.0"
+website = "https://gitlab.com/stcarrez/ada-util"
+[solution.state.release.configuration]
+auto_gpr_with = true
+disabled = true
+generate_ada = true
+generate_c = true
+generate_gpr = true
+output_dir = "config"
+[solution.state.release.environment]
+[solution.state.release.environment.DYNAMO_BUNDLE_PATH]
+prepend = "${CRATE_ROOT}/bundles"
+[solution.state.release.gpr-externals]
+UTIL_BUILD = [
+"distrib",
+"debug",
+"optimize",
+"profile",
+"coverage",
+]
+UTIL_HAS_TIME_64 = [
+"yes",
+"no",
+]
+UTIL_LIBRARY_TYPE = [
+"relocatable",
+"static",
+"static-pic",
+]
+UTIL_OS = [
+"win32",
+"win64",
+"linux32",
+"linux64",
+"macos64",
+"netbsd32",
+"netbsd64",
+"freebsd32",
+"freebsd64",
+"openbsd32",
+"openbsd64",
+]
+[solution.state.release.gpr-set-externals]
+UTIL_OS = "linux64"
+[solution.state.release.origin]
+commit = "bd635f55729b99ca1d2633fb487fe17f935e7d6b"
+url = "git+https://gitlab.com/stcarrez/ada-util.git"
+[[solution.state]]
+crate = "versionlib"
+fulfilment = "linked"
+pinned = false
+transitivity = "direct"
+versions = "~0.1.0-dev"
+[solution.state.link]
+lockfiled = true
+path = "../../versionlib"
+[[solution.state]]
+crate = "zlib"
+fulfilment = "linked"
+pinned = false
+transitivity = "direct"
+versions = "~0.1.0"
+[solution.state.link]
+lockfiled = true
+path = "../../zlib"
+

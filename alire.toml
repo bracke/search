@@ -22,6 +22,9 @@ files = "*"
 guikit = "*"
 
 [[depends-on]]
+humanize = "^0.5.0"
+
+[[depends-on]]
 i18n = "*"
 
 [[depends-on]]
@@ -41,6 +44,9 @@ files = { path = "../files" }
 
 [[pins]]
 guikit = { path = "../guikit" }
+
+[[pins]]
+humanize = { path = "../humanize" }
 
 [[pins]]
 i18n = { path = "../i18n" }

@@ -32,6 +32,9 @@ project_tools = { path = "../../project_tools" }
 files = { path = "../../files" }
 
 [[pins]]
+humanize = { path = "../../humanize" }
+
+[[pins]]
 guikit = { path = "../../guikit" }
 
 [[pins]]
