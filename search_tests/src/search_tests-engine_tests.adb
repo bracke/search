@@ -19,7 +19,7 @@ package body Search_Tests.Engine_Tests is
    procedure Write_File (Path : String; Text : String) is
       File : Ada.Text_IO.File_Type;
    begin
-      Ada.Text_IO.Create (File, Ada.Text_IO.Out_File, Path);
+      Ada.Text_IO.Create (File, Ada.Text_IO.Out_File, Path, Form => "shared=no");
       Ada.Text_IO.Put (File, Text);
       Ada.Text_IO.Close (File);
    end Write_File;

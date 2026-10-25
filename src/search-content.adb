@@ -75,7 +75,7 @@ package body Search.Content is
       Ch     : Character;
       Count  : Long_Long_Integer := 0;
    begin
-      Byte_IO.Open (File, Byte_IO.In_File, Path);
+      Byte_IO.Open (File, Byte_IO.In_File, Path, Form => "shared=no");
       while not Byte_IO.End_Of_File (File) and then Count < Max_Bytes loop
          Byte_IO.Read (File, Ch);
          Append (Result, Ch);
