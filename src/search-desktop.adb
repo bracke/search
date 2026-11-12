@@ -208,7 +208,7 @@ procedure Search.Desktop is
            (if Query_Str = "" then Guikit.Draw.Muted_Text_Color
             else Guikit.Draw.Text_Color);
          Metrics : constant Guikit.Draw.Layout_Metrics :=
-           (Width => W, Height => H, others => 0);
+           (Width => W, Height => H, Line_Height => Line_Height, others => 0);
          Glyphs  : Guikit.Draw.Text_Render_Result;
          Batch   : Guikit.Vulkan.Submission_Batch;
       begin
