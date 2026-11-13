@@ -14,9 +14,8 @@ with Guikit.Utf8;
 with Guikit.Vulkan;
 with Guikit.Widgets;
 
-with Files.Fonts;
-
 with Search.Engine;
+with Search.Fonts;
 with Search.Queries;
 with Search.Types;
 
@@ -328,22 +327,21 @@ procedure Search.Desktop is
    end Smoke_Passes;
 
 begin
-   --  Load the fonts: guikit's chain (Guikit.Fonts) as the files project, which
-   --  search depends on, configures it -- the host's font folders, the
-   --  FILES_FONT_PATH override, and the bitmap colour emoji fonts, which files'
-   --  image decoder, installed below, lets this renderer draw.
+   --  Load the fonts: guikit's chain (Guikit.Fonts) in the host's font folders
+   --  (Search.Fonts). With no font there is nothing to draw text with: say so
+   --  and fail, rather than vanish -- a --smoke run that exits 0 here would
+   --  pass without rendering anything.
    declare
-      Fallbacks : Guikit.Text.Font_Path_Vectors.Vector;
+      Primary : constant String := Search.Fonts.Primary;
    begin
-      if Files.Fonts.Default_Font_Path = "" then
+      if Primary = "" then
+         Ada.Text_IO.Put_Line (Ada.Text_IO.Standard_Error, "search-desktop: no usable font was found");
+         Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Failure);
          return;
       end if;
-      for Path of Files.Fonts.Fallback_Font_Paths loop
-         Fallbacks.Append (To_String (Path));
-      end loop;
       Ignore_Ts :=
         Guikit.Text.Initialize
-          (Text, Files.Fonts.Default_Font_Path, Fallbacks,
+          (Text, Primary, Search.Fonts.Fallbacks,
            --  Sized from the line height, as files does: the font at four
            --  fifths of it, the cell at the advance guikit's widgets measure
            --  labels and carets with.
@@ -352,12 +350,6 @@ begin
            Cell_Height  => Line_Height,
            Atlas_Width  => 1024,
            Atlas_Height => 1024);
-      if Guikit.Text.Loaded (Text) then
-         Guikit.Text.Set_Image_Decoder
-           (Text,
-            Files.Fonts.Colour_Glyph_Image_Extent'Access,
-            Files.Fonts.Decode_Colour_Glyph_Image'Access);
-      end if;
    end;
 
    --  Create the window.

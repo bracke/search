@@ -2,15 +2,17 @@ name: ci
 
 # Builds search and runs its AUnit suite on Linux, macOS and Windows.
 #
-# search pins sibling crates by path and pulls in more transitively (files,
-# guikit, textrender, hostkit, versionlib, regexp, messages, i18n, project_tools,
-# httpclient, sshlib, zlib, cryptolib, tarlib, awklib). CI clones each next to the
-# checkout; they must exist as fetchable GitHub repos under the same owner.
+# search pins sibling crates by path and pulls in more transitively (guikit,
+# textrender, hostkit, versionlib, regexp, messages, humanize, i18n,
+# project_tools, httpclient, sshlib, zlib, cryptolib, tarlib, awklib). CI clones
+# each next to the checkout; they must exist as fetchable GitHub repos under the
+# same owner. (It no longer depends on files: its fonts come from Guikit.Fonts.)
 #
-# search is a GUI application (files + guikit render through Vulkan + GLFW), so
-# every job installs the Vulkan/GLFW/GTK stack. Building i18n runs its pre-build
-# regeneration -- download_tzdb (httpclient, zlib, tarlib, awklib-on-regexp) and
-# the CLDR import -- which links OpenSSL, so each platform installs that too.
+# search-desktop renders through guikit (Vulkan + GLFW), so every job installs
+# the Vulkan/GLFW stack, and renders a real search (--smoke) with Mesa's
+# lavapipe software Vulkan. Building i18n runs its pre-build regeneration --
+# download_tzdb (httpclient, zlib, tarlib, awklib-on-regexp) and the CLDR
+# import -- which links OpenSSL, so each platform installs that too.
 
 on:
   push:
@@ -46,9 +48,9 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libssl-dev \
             libvulkan-dev \
-            libgdk-pixbuf-2.0-dev \
-            libglib2.0-dev \
-            libgtk-3-dev \
+            mesa-vulkan-drivers \
+            xvfb \
+            fonts-dejavu-core \
             libxcursor-dev \
             libxxf86vm-dev \
             libxrandr-dev \
@@ -69,9 +71,9 @@ jobs:
              [[ "$(readlink /usr/local/bin/openssl)" == *openssl@1.1* ]]; then
             unlink /usr/local/bin/openssl
           fi
-          # MoltenVK provides the Vulkan loader/ICD; gdk-pixbuf pulls in glib.
+          # MoltenVK provides the Vulkan loader/ICD.
           # openssl@3: httpclient's TLS bridge (i18n's download_tzdb links it).
-          brew install vulkan-headers vulkan-loader molten-vk glfw gdk-pixbuf openssl@3
+          brew install vulkan-headers vulkan-loader molten-vk glfw openssl@3
 
           # Homebrew on the x86_64 runner installs under /usr/local, not on the
           # linker's default search path; openssl@3 is keg-only, so add its lib dir.
@@ -90,8 +92,6 @@ jobs:
 
           # openssl: httpclient's TLS bridge (i18n's download_tzdb links it).
           packages="mingw-w64-x86_64-vulkan-loader
-                    mingw-w64-x86_64-glib2
-                    mingw-w64-x86_64-gdk-pixbuf2
                     mingw-w64-x86_64-glfw
                     mingw-w64-x86_64-openssl"
 
@@ -160,6 +160,84 @@ jobs:
         shell: bash
         working-directory: search/search_tests
         run: alr exec -- ./bin/search_release_check
+      # The render gate, as files runs its live smoke: search-desktop runs a
+      # real search ("search" under the checkout itself, which finds its own
+      # sources) and the frame is read back and checked for the query field
+      # and the result rows, under Xvfb with Mesa's lavapipe software Vulkan.
+      # "search-desktop smoke: PASS" must be printed: a window that finds no
+      # font returns before rendering.
+      - name: Live render smoke (Linux, software Vulkan)
+        if: runner.os == 'Linux'
+        timeout-minutes: 15
+        shell: bash
+        working-directory: search
+        env:
+          VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.json
+        run: |
+          set +e
+          out="$(xvfb-run -a ./bin/search-desktop --smoke . search 2>&1)"
+          code=$?
+          set -e
+          printf '%s\n' "$out"
+          if [ "$code" -ne 0 ]; then
+            echo "::error::search-desktop --smoke exited with $code"
+            exit "$code"
+          fi
+          if ! printf '%s\n' "$out" | tr -d '\r' | grep -qx "search-desktop smoke: PASS"; then
+            echo "::error::search-desktop --smoke did not report PASS"
+            exit 1
+          fi
+
+      # The same gate on the other hosts, with lavapipe set up exactly as files
+      # sets it up: from MSYS2 on Windows (registered in HKLM too, because the
+      # runner's elevated shell has a loader that ignores VK_ICD_FILENAMES),
+      # from Homebrew on macOS (the Intel runner has no Metal device, so
+      # MoltenVK is only the fallback).
+      - name: Live render smoke (Windows and macOS, software Vulkan)
+        if: runner.os != 'Linux'
+        timeout-minutes: 30
+        shell: bash
+        working-directory: search
+        env:
+          MATRIX_OS: ${{ matrix.os }}
+        run: |
+          set +e +o pipefail
+          export VK_LOADER_DEBUG=error,warn
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            export PATH="/c/msys64/mingw64/bin:$PATH"
+            /c/msys64/usr/bin/pacman -S --noconfirm --needed --disable-download-timeout \
+              mingw-w64-x86_64-mesa \
+              || echo "::warning::could not install MSYS2 mesa"
+            icd="$(ls /c/msys64/mingw64/share/vulkan/icd.d/*lvp*.json 2>/dev/null | head -1)"
+            if [ -n "$icd" ]; then
+              export VK_ICD_FILENAMES="$(cygpath -w "$icd")"
+              reg add 'HKLM\SOFTWARE\Khronos\Vulkan\Drivers' //v "$(cygpath -w "$icd")" //t REG_DWORD //d 0 //f \
+                || echo "::warning::could not register the lavapipe driver"
+            fi
+            bin=./bin/search-desktop.exe
+          else
+            HOMEBREW_NO_AUTO_UPDATE=1 brew install mesa || echo "::warning::could not install Homebrew mesa"
+            icd="$(ls "$(brew --prefix)"/{share,etc}/vulkan/icd.d/lvp_icd*.json 2>/dev/null | head -1)"
+            [ -n "$icd" ] || icd="$(ls "$(brew --prefix)"/{share,etc}/vulkan/icd.d/MoltenVK_icd.json 2>/dev/null | head -1)"
+            if [ -n "$icd" ]; then
+              export VK_ICD_FILENAMES="$icd"
+            fi
+            bin=./bin/search-desktop
+            export MVK_CONFIG_LOG_LEVEL=2
+          fi
+          echo "VK_ICD_FILENAMES=${VK_ICD_FILENAMES:-<unset>}"
+          out="$("$bin" --smoke . search 2>&1)"
+          code=$?
+          printf '%s\n' "$out"
+          if [ "$code" -ne 0 ]; then
+            echo "::error::search-desktop --smoke exited with $code on $MATRIX_OS"
+            exit "$code"
+          fi
+          if ! printf '%s\n' "$out" | tr -d '\r' | grep -qx "search-desktop smoke: PASS"; then
+            echo "::error::search-desktop --smoke did not report PASS on $MATRIX_OS"
+            exit 1
+          fi
+
       # A catalogue can be well-formed and still have drifted from the
       # messages it translates: a key with no original, an argument dropped so
       # the text renders without the value it was about, an option name

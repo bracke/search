@@ -19,6 +19,11 @@ search = "*"
 [[depends-on]]
 aunit = "^26.0.0"
 
+# The engine tests build their fixtures (links included) and remove them
+# without following links through Hostkit.Fs.
+[[depends-on]]
+hostkit = "*"
+
 [[depends-on]]
 project_tools = "*"
 
@@ -27,9 +32,6 @@ search = { path = ".." }
 
 [[pins]]
 project_tools = { path = "../../project_tools" }
-
-[[pins]]
-files = { path = "../../files" }
 
 [[pins]]
 humanize = { path = "../../humanize" }

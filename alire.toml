@@ -16,10 +16,10 @@ executables = ["search", "search-desktop"]
 gnat_native = "=15.2.1"
 
 [[depends-on]]
-files = "*"
+guikit = "*"
 
 [[depends-on]]
-guikit = "*"
+hostkit = "*"
 
 [[depends-on]]
 humanize = "^0.5.0"
@@ -38,9 +38,6 @@ versionlib = "*"
 
 [[depends-on]]
 project_tools = "*"
-
-[[pins]]
-files = { path = "../files" }
 
 [[pins]]
 guikit = { path = "../guikit" }

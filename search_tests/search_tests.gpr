@@ -1,5 +1,6 @@
 with "config/search_tests_config.gpr";
 with "../search.gpr";
+with "../../hostkit/hostkit.gpr";
 with "../../project_tools/project_tools.gpr";
 
 project Search_Tests is

@@ -1,6 +1,6 @@
 with "config/search_config.gpr";
-with "../files/files.gpr";
 with "../guikit/guikit.gpr";
+with "../hostkit/hostkit.gpr";
 with "../i18n/i18n.gpr";
 with "../messages/messages.gpr";
 with "../regexp/regexp.gpr";
@@ -31,20 +31,23 @@ project Search is
    end Binder;
 
    package Linker is
+      --  Vulkan for guikit's renderer (the loader is vulkan-1.dll on Windows).
+      --  gdk-pixbuf, gobject and glib used to be listed too: they were files'
+      --  thumbnail decoder's, linked in with the files crate search no longer
+      --  depends on, and nothing in search calls them.
       case Search_Config.Alire_Host_OS is
          when "macos" =>
             for Default_Switches ("Ada") use
-              ("-lvulkan", "-lgdk_pixbuf-2.0", "-lgobject-2.0", "-lglib-2.0",
+              ("-lvulkan",
                "-framework", "CoreFoundation", "-framework", "CoreServices",
                "-framework", "Foundation");
          when "windows" =>
             for Default_Switches ("Ada") use
-              ("-lvulkan-1", "-lgdk_pixbuf-2.0", "-lgobject-2.0", "-lglib-2.0",
+              ("-lvulkan-1",
                "-lws2_32", "-lcrypt32",
                "-lshell32", "-lole32", "-lkernel32");
          when others =>
-            for Default_Switches ("Ada") use
-              ("-lvulkan", "-lgdk_pixbuf-2.0", "-lgobject-2.0", "-lglib-2.0");
+            for Default_Switches ("Ada") use ("-lvulkan");
       end case;
    end Linker;
 

@@ -1,10 +1,9 @@
-with Ada.Characters.Handling;
 with Ada.Directories;
 with Ada.Sequential_IO;
 with Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 
-with Regexp;
+with Search.Text_Fold;
 
 package body Search.Content is
    use type Search.Types.Encoding_Kind;
@@ -12,15 +11,6 @@ package body Search.Content is
    use type Regexp.Match_Status;
 
    package Byte_IO is new Ada.Sequential_IO (Character);
-
-   function Lower (Text : String) return String is
-      Result : String (Text'Range);
-   begin
-      for I in Text'Range loop
-         Result (I) := Ada.Characters.Handling.To_Lower (Text (I));
-      end loop;
-      return Result;
-   end Lower;
 
    function Contains_Nul (Text : String) return Boolean is
    begin
@@ -119,11 +109,13 @@ package body Search.Content is
       Line   : String;
       Number : Positive;
       Query  : Search.Queries.Query;
+      Needle : String;
       Regex  : Regexp.Compile_Result)
    is
-      Pattern : constant String := Search.Queries.Pattern (Query);
-      Hay     : constant String := (if Search.Queries.Case_Sensitive (Query) then Line else Lower (Line));
-      Needle  : constant String := (if Search.Queries.Case_Sensitive (Query) then Pattern else Lower (Pattern));
+      --  The line as it is compared, indexed from 1 so that a position in it
+      --  is the column reported. Folding keeps every byte where it was.
+      Hay     : constant String (1 .. Line'Length) :=
+        (if Search.Queries.Case_Sensitive (Query) then Line else Search.Text_Fold.Fold (Line));
       From    : Positive := 1;
       Found   : Regexp.Match_Result;
       Index   : Natural;
@@ -160,23 +152,23 @@ package body Search.Content is
                   First_Byte => Index,
                   Last_Byte  => Index + Needle'Length - 1,
                   Preview    => To_Unbounded_String (Line)));
-            exit when Index + Needle'Length > Hay'Length;
+            exit when Index + Needle'Length > Hay'Last;
+            --  Index over a slice answers a position in Hay itself, so it is the
+            --  next match's column as it stands.
             Index := Ada.Strings.Fixed.Index (Hay (Index + Needle'Length .. Hay'Last), Needle);
-            if Index > 0 then
-               Index := Index + Needle'Length;
-            end if;
          end loop;
       end if;
    end Append_Line_Matches;
 
    function Scan_File
-     (Path  : String;
-      Query : Search.Queries.Query) return Scan_Result
+     (Path   : String;
+      Query  : Search.Queries.Query;
+      Needle : String;
+      Regex  : Regexp.Compile_Result) return Scan_Result
    is
       Result   : Scan_Result;
       Raw      : constant String := To_String (Read_Bounded (Path, Search.Queries.Max_File_Size (Query)));
       Text     : Unbounded_String;
-      Regex    : Regexp.Compile_Result;
       Start    : Positive := 1;
       Stop     : Natural;
       Line_No  : Positive := 1;
@@ -203,10 +195,6 @@ package body Search.Content is
          Text := To_Unbounded_String (Raw);
       end if;
 
-      if Search.Queries.Text_Mode (Query) = Search.Types.Regular_Expression then
-         Regex := Regexp.Compile (Search.Queries.Pattern (Query));
-      end if;
-
       declare
          S : constant String := To_String (Text);
       begin
@@ -217,7 +205,7 @@ package body Search.Content is
             if Stop = 0 then
                Stop := S'Last + 1;
             end if;
-            Append_Line_Matches (Result, S (Start .. Stop - 1), Line_No, Query, Regex);
+            Append_Line_Matches (Result, S (Start .. Stop - 1), Line_No, Query, Needle, Regex);
             Start := Stop + 1;
             Line_No := Line_No + 1;
          end loop;
