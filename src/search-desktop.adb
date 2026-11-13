@@ -328,7 +328,10 @@ procedure Search.Desktop is
    end Smoke_Passes;
 
 begin
-   --  Load the fonts (reused from the files project, which search depends on).
+   --  Load the fonts: guikit's chain (Guikit.Fonts) as the files project, which
+   --  search depends on, configures it -- the host's font folders, the
+   --  FILES_FONT_PATH override, and the bitmap colour emoji fonts, which files'
+   --  image decoder, installed below, lets this renderer draw.
    declare
       Fallbacks : Guikit.Text.Font_Path_Vectors.Vector;
    begin
@@ -349,6 +352,12 @@ begin
            Cell_Height  => Line_Height,
            Atlas_Width  => 1024,
            Atlas_Height => 1024);
+      if Guikit.Text.Loaded (Text) then
+         Guikit.Text.Set_Image_Decoder
+           (Text,
+            Files.Fonts.Colour_Glyph_Image_Extent'Access,
+            Files.Fonts.Decode_Colour_Glyph_Image'Access);
+      end if;
    end;
 
    --  Create the window.
