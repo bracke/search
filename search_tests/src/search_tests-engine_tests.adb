@@ -92,6 +92,38 @@ package body Search_Tests.Engine_Tests is
       Run_Test;
    end Test_Content_Search;
 
+   --  A root named "." or a hidden folder is searched: it was named, so the
+   --  hidden-entry rule (which skips dot names met in the walk) does not
+   --  apply to it. A "." root once found nothing at all.
+   procedure Named_Roots (Root : String) is
+      Hidden   : constant String := Hostkit.Fs.Join (Root, ".hidden");
+      Previous : constant String := Ada.Directories.Current_Directory;
+      Summary  : Search.Engine.Execution_Summary;
+   begin
+      Ada.Directories.Create_Directory (Hidden);
+      Write_File (Hostkit.Fs.Join (Hidden, "needle.txt"), "x");
+      Write_File (Hostkit.Fs.Join (Root, "other-needle.txt"), "x");
+      Summary := Run (Hidden, "needle", Search.Types.Filename_Mode);
+      Assert (Summary.Result_Count = 1, "a hidden folder named as the root is searched");
+      Ada.Directories.Set_Directory (Root);
+      begin
+         Summary := Run (".", "needle", Search.Types.Filename_Mode);
+         Ada.Directories.Set_Directory (Previous);
+      exception
+         when others =>
+            Ada.Directories.Set_Directory (Previous);
+            raise;
+      end;
+      Assert (Summary.Result_Count = 1, "a '.' root is searched, its hidden folder still skipped");
+   end Named_Roots;
+
+   procedure Test_Named_Roots (T : in out AUnit.Test_Cases.Test_Case'Class) is
+      pragma Unreferenced (T);
+      procedure Run_Test is new With_Fixture (Named_Roots);
+   begin
+      Run_Test;
+   end Test_Named_Roots;
+
    procedure Test_Cancellation (T : in out AUnit.Test_Cases.Test_Case'Class) is
       pragma Unreferenced (T);
       Builder : Search.Queries.Query_Builder := Search.Queries.New_Builder;
@@ -255,6 +287,7 @@ package body Search_Tests.Engine_Tests is
       use AUnit.Test_Cases.Registration;
    begin
       Register_Routine (T, Test_Content_Search'Access, "content search");
+      Register_Routine (T, Test_Named_Roots'Access, "a '.' or hidden root is searched");
       Register_Routine (T, Test_Cancellation'Access, "cancellation before the walk");
       Register_Routine (T, Test_Cancellation_Mid_Walk'Access, "cancellation during the walk stops it early");
       Register_Routine (T, Test_Link_Loop'Access, "a link loop is walked through at most once");

@@ -182,7 +182,12 @@ package body Search.Engine is
             return;
          end if;
 
-         if Search.Queries.Hidden_Policy (Query) = Search.Types.Exclude_Hidden and then Is_Hidden (Path) then
+         --  A root is searched whatever its name: "." (the current folder) or
+         --  a hidden folder the user named is what they asked for.
+         if Depth > 0
+           and then Search.Queries.Hidden_Policy (Query) = Search.Types.Exclude_Hidden
+           and then Is_Hidden (Path)
+         then
             return;
          end if;
 
