@@ -4,9 +4,13 @@ name: ci
 #
 # search pins sibling crates by path and pulls in more transitively (guikit,
 # textrender, hostkit, versionlib, regexp, messages, humanize, i18n,
-# project_tools, httpclient, sshlib, zlib, cryptolib, tarlib, awklib). CI clones
-# each next to the checkout; they must exist as fetchable GitHub repos under the
-# same owner. (It no longer depends on files: its fonts come from Guikit.Fonts.)
+# project_tools, httpclient, sshlib, ssllib, truststores, zlib, cryptolib,
+# tarlib, awklib). CI clones each next to the checkout at a reviewed commit, as
+# files' CI does, so a search revision always builds against the same
+# dependency set instead of whatever each sibling's main is that day. They must
+# exist as fetchable GitHub repos under the same owner, and the pinned commits
+# must stay fetchable. (It no longer depends on files: its fonts come from
+# Guikit.Fonts.)
 #
 # search-desktop renders through guikit (Vulkan + GLFW), so every job installs
 # the Vulkan/GLFW stack, and renders a real search (--smoke) with Mesa's
@@ -45,10 +49,89 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with: { path: search }
-      - name: Check out sibling crates (transitive pin closure)
-        uses: bracke/project_tools/.github/actions/checkout-ada-siblings@main
+      # The pins below are the build's whole sibling closure: search's own
+      # path pins, theirs, and what i18n's pre-build regeneration builds
+      # (download_tzdb: httpclient with ssllib/truststores, tarlib,
+      # awklib-on-regexp). BUMP THEM when search needs a sibling change: a
+      # sibling commit search depends on is not seen here until its pin moves
+      # (and it must be pushed before CI can fetch it). A sibling that gains a
+      # new path pin has to be added here as well.
+      - name: Clone sibling crates at pinned revisions
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          owner="${{ github.repository_owner }}"
+          clone_at() {
+            name="$1"
+            revision="$2"
+            git init "$name"
+            git -C "$name" remote add origin "https://github.com/${owner}/${name}.git"
+            # A fetch dying halfway is the runner's network; try it three times.
+            for attempt in 1 2 3; do
+              if git -C "$name" fetch --depth 1 origin "$revision"; then
+                git -C "$name" checkout --detach FETCH_HEAD
+                return 0
+              fi
+              echo "::warning::fetching ${name} at ${revision} failed (attempt ${attempt})"
+              sleep 5
+            done
+            echo "::error::could not fetch ${owner}/${name} at ${revision}"
+            return 1
+          }
+          clone_at project_tools 5ed5f4dcfa10301345933d45e5f78ac0573d8cff
+          clone_at i18n 21d4d191f1d90a16248b71dfc54b4384502cf658
+          clone_at messages 1a3434a6796e1017cd10ede2a8a338c9cfdb0e5c
+          clone_at humanize 60c99ebd3d4080e92b8455fba47adc9c50f19fc3
+          clone_at textrender 0a6721cb4239e581518c0d312bb7085e5b1ff402
+          clone_at guikit c42c04fd83e5d22c02f950354e0da6b0862623cc
+          clone_at hostkit 2301cbdee2b3c9f41168b34be098a6832f0bdeb4
+          clone_at zlib e2a66961dc1ebb9d90433160a43f78f52f8db9e1
+          clone_at cryptolib 2e5c415f65fd49c2a496c97813740fa9b83e02fa
+          clone_at versionlib 60ee39444eb3c13d435232f3f15ec10b0c735009
+          clone_at regexp f660333a314f3c610bb255478ac86656e2fd0c4c
+          clone_at httpclient 4a6847ee9ba01888d945bb77274cbf5bb536cd13
+          clone_at sshlib 4c9cc984f1bd1ce9d54b79f347df32fba7dba1fc
+          clone_at ssllib b1637fa14a30ab60b7ef6800533a88aed5a549bf
+          clone_at truststores 90ce36a625ce8687685e0bf98ce279ee0f39c697
+          clone_at tarlib 1a6f22ae04e89a2e634d00f283527d337e3d3b1b
+          clone_at awklib 648bd7466e3b36112027c2116326b146224b2e21
+
+      # What project_tools' checkout-ada-siblings action did besides cloning
+      # each sibling's main, inlined as files inlines it: building i18n
+      # regenerates its data, which on a fresh checkout downloads cldr-json,
+      # the IANA tzdb and the Unicode data -- sources Windows runners reach
+      # only intermittently. The raw download trees are cached under a key
+      # that is the same on every OS, so a Linux or macOS download seeds the
+      # Windows job; the key changes with any version or downloader change.
+      - name: Compute an OS-stable i18n upstream cache key
+        id: cldr_key
+        if: hashFiles('i18n/cldr/upstream/source_manifest.txt') != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          h=$(cat \
+                "$GITHUB_WORKSPACE/i18n/cldr/upstream/source_manifest.txt" \
+                "$GITHUB_WORKSPACE/i18n/cldr/src/download_cldr_upstream.adb" \
+                "$GITHUB_WORKSPACE/i18n/cldr/src/download_tzdb.adb" \
+                "$GITHUB_WORKSPACE/i18n/cldr/src/fetch_ucd.adb" \
+              | tr -d '\r' | git hash-object --stdin)
+          echo "key=i18n-upstream-$h" >> "$GITHUB_OUTPUT"
+      - name: Cache the i18n upstream download trees
+        if: steps.cldr_key.outputs.key != ''
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          root: search
+          path: |
+            i18n/cldr/upstream/cldr-json
+            i18n/cldr/upstream/tzdb
+            i18n/cldr/upstream/ucd
+            i18n/cldr/upstream/ucd16
+            i18n/cldr/upstream/uca
+            i18n/cldr/upstream/collation
+            i18n/cldr/upstream/transforms
+            i18n/cldr/upstream/transforms_test
+          key: ${{ steps.cldr_key.outputs.key }}
+          enableCrossOsArchive: true
 
       - name: Install system libraries (Linux)
         if: runner.os == 'Linux'
@@ -184,6 +267,10 @@ jobs:
       - name: Run the search test suite
         shell: bash
         working-directory: search/search_tests
+        env:
+          # The runner is not root, so a folder can be made unreadable to the
+          # suite: the unreadable-root test must run there, not skip.
+          SEARCH_TEST_REQUIRE_UNREADABLE: ${{ runner.os == 'Linux' && '1' || '0' }}
         run: alr exec -- ./bin/search_tests
 
       - name: Run the release check

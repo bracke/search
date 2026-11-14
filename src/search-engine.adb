@@ -63,9 +63,13 @@ package body Search.Engine is
    begin
       if Search.Queries.Text_Mode (Query) = Search.Types.Regular_Expression then
          --  A code point at a time, as content is scanned, so "." and a class
-         --  take a whole "é" in a name. A name that is not UTF-8 (POSIX lets
-         --  a name be any bytes) is matched a byte at a time: in UTF-8 mode
-         --  the matcher would refuse it outright.
+         --  take a whole "é" in a name: the expression is compiled in UTF-8
+         --  mode, and the compiled mode is what governs how the matcher steps
+         --  through the text. A name that is not UTF-8 (POSIX lets a name be
+         --  any bytes) is matched with ASCII-mode options only because UTF-8
+         --  options make the matcher refuse it outright; it is still stepped
+         --  through a UTF-8 sequence at a time where one is found, and a stray
+         --  byte alone.
          return Regexp.Find_First
            (Regex.Expression,
             Text,
@@ -253,6 +257,12 @@ package body Search.Engine is
               and then (not Is_Link or else Policy /= Search.Types.Do_Not_Follow_Symlinks)
             then
                Content := Search.Content.Scan_File (Path, Query, Needle, Regex);
+               --  What kept a file's content from being searched (too large,
+               --  unreadable, gone) is reported whether or not the file is
+               --  found by its name; a result found carries it as well.
+               for Diagnostic of Content.Diagnostics loop
+                  Add_Diagnostic (Diagnostic);
+               end loop;
             end if;
 
             if (Name_Match or else Path_Match or else Content.Match_Count > 0)
@@ -379,7 +389,13 @@ package body Search.Engine is
             Depth    => 0);
       end Walk_Root;
 
-      task type Traversal_Worker is
+      --  The walk recurses a frame or two per folder level and the matcher
+      --  keeps its state sets on the stack; a file's text is on the heap (see
+      --  Search.Content). The default task stack is small and differs by
+      --  host (about 1 MiB on Windows), so the worker asks for its own.
+      Worker_Stack_Size : constant := 16 * 1024 * 1024;
+
+      task type Traversal_Worker with Storage_Size => Worker_Stack_Size is
          entry Run;
       end Traversal_Worker;
 

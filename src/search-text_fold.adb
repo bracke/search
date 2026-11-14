@@ -86,13 +86,12 @@ package body Search.Text_Fold is
       end loop;
    end Decode;
 
-   function Fold (Text : String) return String is
-      Result : String := Text;
-      I      : Integer := Text'First;
+   procedure Fold_In_Place (Text : in out String) is
+      I : Integer := Text'First;
    begin
       while I <= Text'Last loop
          if Text (I) in 'A' .. 'Z' then
-            Result (I) := Character'Val (Character'Pos (Text (I)) + 32);
+            Text (I) := Character'Val (Character'Pos (Text (I)) + 32);
             I := I + 1;
          elsif At_Byte (Text, I) < 16#80# then
             I := I + 1;
@@ -112,7 +111,7 @@ package body Search.Text_Fold is
                      Bytes : constant String := Encode (Lower);
                   begin
                      if Bytes'Length = Length then
-                        Result (I .. I + Length - 1) := Bytes;
+                        Text (I .. I + Length - 1) := Bytes;
                      end if;
                   end;
                   I := I + Length;
@@ -120,6 +119,12 @@ package body Search.Text_Fold is
             end;
          end if;
       end loop;
+   end Fold_In_Place;
+
+   function Fold (Text : String) return String is
+      Result : String := Text;
+   begin
+      Fold_In_Place (Result);
       return Result;
    end Fold;
 

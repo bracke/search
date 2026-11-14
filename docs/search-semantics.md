@@ -12,7 +12,16 @@ Path matching (path and combined modes) matches an object's path relative to the
 
 ## Regular expressions
 
-A regular expression matches names, paths and content a code point at a time (UTF-8), so `.` or a class such as `[éè]` takes a whole `é`. A name that is not UTF-8 is matched a byte at a time.
+A regular expression matches names, paths and content a code point at a time (UTF-8), so `.` or a class such as `[éè]` takes a whole `é`. The expression is compiled in UTF-8 mode, and that mode governs how the matcher steps: a name that is not UTF-8 is still matched (with options that skip the UTF-8 check, which would otherwise refuse it), a UTF-8 sequence at a time where one is found and a stray byte alone.
+
+## Content
+
+A file's content is read in blocks onto the heap, whatever the length of its lines.
+
+- A file larger than the query's maximum file size (64 MiB unless the query says otherwise) is not read at all, and is reported with the warning `content.file.too_large`; a file that cannot be read with `content.file.unreadable`, and one gone before it could be read with `content.file.missing`. These warnings are in the search's diagnostics whether or not the file is found by its name.
+- A file with a NUL in its first 8 KiB is binary, as grep has it, and its content is not searched; only that first block is read.
+- A file that opens with a UTF-16 byte order mark (`FF FE` or `FE FF`) is decoded to UTF-8 and searched as that: surrogate pairs become their supplementary code point, and a lone surrogate or a trailing odd byte becomes U+FFFD. Byte offsets of its matches are offsets into the decoded UTF-8 line.
+- A match's preview is a window of its line: up to 200 bytes before the match, the match's first 200 bytes, and up to 200 bytes after, never splitting a UTF-8 sequence. A side that was cut is marked with an ellipsis (`…`). A short line is its own preview.
 
 ## Symbolic links
 

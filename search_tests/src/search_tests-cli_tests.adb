@@ -1,4 +1,5 @@
 with Ada.Directories;
+with Ada.Environment_Variables;
 with Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO;
@@ -120,10 +121,15 @@ package body Search_Tests.Cli_Tests is
          return False;
    end Can_List;
 
+   --  Set to 1 where the unreadable-root case must run (the Linux CI job, on
+   --  a runner that is not root): there a set-up that fails is a failure,
+   --  not a skip.
+   Require_Unreadable_Variable : constant String := "SEARCH_TEST_REQUIRE_UNREADABLE";
+
    --  A root that exists but cannot be walked fails the run. Taking a
    --  folder's read permission away is a mode change on POSIX; an
    --  administrator (root in a container) reads it anyway, and then there is
-   --  nothing to check.
+   --  nothing to check -- which is said, not passed over in silence.
    procedure Test_Unreadable_Root (T : in out AUnit.Test_Cases.Test_Case'Class) is
       pragma Unreferenced (T);
       Root   : constant String := Hostkit.Fs.Create_Temporary_Directory ("search-cli-test");
@@ -135,8 +141,21 @@ package body Search_Tests.Cli_Tests is
         or else not Hostkit.Metadata.Set_Permissions (Closed, 0)
         or else Can_List (Closed)
       then
-         Ignore := Hostkit.Fs.Delete_Tree_No_Follow (Root);
-         return;
+         declare
+            Required : constant Boolean :=
+              Ada.Environment_Variables.Exists (Require_Unreadable_Variable)
+              and then Ada.Environment_Variables.Value (Require_Unreadable_Variable) = "1";
+            Restored : constant Boolean := Hostkit.Metadata.Set_Permissions (Closed, 8#700#);
+         begin
+            Ignore := Hostkit.Fs.Delete_Tree_No_Follow (Root);
+            Ada.Text_IO.Put_Line
+              ("SKIPPED: a root that cannot be walked fails the run -- this process can still list a folder"
+               & " it has no read permission on (Windows, or running as an administrator)");
+            Assert (not Required,
+                    Require_Unreadable_Variable & "=1, but no unreadable folder could be made"
+                    & (if Restored then "" else " (and its permissions could not be restored)"));
+            return;
+         end;
       end if;
       declare
          Result          : constant Search.Cli.Outcome := Search.Cli.Run (Arguments (Closed, "x"));

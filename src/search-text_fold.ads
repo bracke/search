@@ -22,4 +22,11 @@ package Search.Text_Fold is
    --  @return The folded text, with Text's bounds and length.
    function Fold (Text : String) return String;
 
+   --  Fold Text where it lies, as Fold would: a folded code point takes the
+   --  bytes the original did. For text too long to copy onto a stack -- a
+   --  whole file's content, folded once on the heap.
+   --
+   --  @param Text UTF-8 text (invalid sequences are left unchanged).
+   procedure Fold_In_Place (Text : in out String);
+
 end Search.Text_Fold;
