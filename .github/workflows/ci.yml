@@ -81,11 +81,11 @@ jobs:
           }
           clone_at project_tools 5ed5f4dcfa10301345933d45e5f78ac0573d8cff
           clone_at i18n 21d4d191f1d90a16248b71dfc54b4384502cf658
-          clone_at messages 1a3434a6796e1017cd10ede2a8a338c9cfdb0e5c
+          clone_at messages 6d092f9590c6b0cb0d7704ce20c33b3ac76b8d14
           clone_at humanize 60c99ebd3d4080e92b8455fba47adc9c50f19fc3
           clone_at textrender 0a6721cb4239e581518c0d312bb7085e5b1ff402
           clone_at guikit c42c04fd83e5d22c02f950354e0da6b0862623cc
-          clone_at hostkit 2301cbdee2b3c9f41168b34be098a6832f0bdeb4
+          clone_at hostkit b3943559fd6045659d4799488abd24d563b2b77a
           clone_at zlib e2a66961dc1ebb9d90433160a43f78f52f8db9e1
           clone_at cryptolib 2e5c415f65fd49c2a496c97813740fa9b83e02fa
           clone_at versionlib 60ee39444eb3c13d435232f3f15ec10b0c735009
