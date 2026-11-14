@@ -27,6 +27,15 @@ package Search.Queries is
    procedure Set_Case_Sensitive (Builder : in out Query_Builder; Enabled : Boolean);
    procedure Set_Content_Context_Lines (Builder : in out Query_Builder; Lines : Natural);
    procedure Set_Max_File_Size (Builder : in out Query_Builder; Bytes : Long_Long_Integer);
+
+   --  The folder a relative root is read from. "" (the default) is the
+   --  process's current directory when the query runs; naming one lets a
+   --  caller search "." somewhere without changing that directory, which is
+   --  the whole process's.
+   --
+   --  @param Builder The query being built.
+   --  @param Directory The folder, absolute or itself read from the current one.
+   procedure Set_Base_Directory (Builder : in out Query_Builder; Directory : String);
    function Build (Builder : Query_Builder) return Query;
 
    function Roots (Value : Query) return String_Vectors.Vector;
@@ -41,6 +50,15 @@ package Search.Queries is
    function Case_Sensitive (Value : Query) return Boolean;
    function Content_Context_Lines (Value : Query) return Natural;
    function Max_File_Size (Value : Query) return Long_Long_Integer;
+   function Base_Directory (Value : Query) return String;
+
+   --  Root as the search walks it: absolute, read from Base_Directory when it
+   --  is relative, its "." and ".." resolved from the text alone.
+   --
+   --  @param Value The query.
+   --  @param Root One of its roots, as it was added.
+   --  @return The root's absolute path; "" for an empty Root.
+   function Resolved_Root (Value : Query; Root : String) return String;
 
    function Validate (Value : Query) return Search.Types.Diagnostic_Vectors.Vector;
 
@@ -58,6 +76,7 @@ private
       Case_Sensitive        : Boolean := False;
       Content_Context_Lines : Natural := 2;
       Max_File_Size         : Long_Long_Integer := 64 * 1024 * 1024;
+      Base_Directory        : UString;
    end record;
 
    type Query is record

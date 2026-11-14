@@ -1,5 +1,6 @@
 with Ada.Directories;
 with Ada.Strings.Fixed;
+with Ada.Strings.Unbounded;
 with Ada.Text_IO;
 
 with AUnit.Assertions; use AUnit.Assertions;
@@ -62,19 +63,53 @@ package body Search_Tests.Engine_Tests is
       Pattern        : String;
       Mode           : Search.Types.Search_Mode;
       Case_Sensitive : Boolean := False;
-      Policy         : Search.Types.Symlink_Policy := Search.Types.Do_Not_Follow_Symlinks)
+      Policy         : Search.Types.Symlink_Policy := Search.Types.Do_Not_Follow_Symlinks;
+      Text           : Search.Types.Text_Mode := Search.Types.Literal_Text;
+      Base           : String := "";
+      Also_Root      : String := "")
       return Search.Engine.Execution_Summary
    is
       Builder : Search.Queries.Query_Builder := Search.Queries.New_Builder;
       Token   : aliased Search.Engine.Cancellation_Token;
    begin
       Search.Queries.Add_Root (Builder, Root);
+      Search.Queries.Add_Root (Builder, Also_Root);
       Search.Queries.Set_Pattern (Builder, Pattern);
       Search.Queries.Set_Mode (Builder, Mode);
       Search.Queries.Set_Case_Sensitive (Builder, Case_Sensitive);
       Search.Queries.Set_Symlink_Policy (Builder, Policy);
+      Search.Queries.Set_Text_Mode (Builder, Text);
+      Search.Queries.Set_Base_Directory (Builder, Base);
       return Search.Engine.Execute (Search.Queries.Build (Builder), Token'Access);
    end Run;
+
+   --  The results a search reports, gathered from its batches.
+   function Found
+     (Root    : String;
+      Pattern : String;
+      Mode    : Search.Types.Search_Mode;
+      Base    : String := "")
+      return Search.Types.Result_Vectors.Vector
+   is
+      Builder : Search.Queries.Query_Builder := Search.Queries.New_Builder;
+      Token   : aliased Search.Engine.Cancellation_Token;
+      Results : Search.Types.Result_Vectors.Vector;
+      Ignored : Search.Engine.Execution_Summary;
+
+      procedure Collect (Batch : Search.Types.Result_Batch) is
+      begin
+         for Item of Batch.Results loop
+            Results.Append (Item);
+         end loop;
+      end Collect;
+   begin
+      Search.Queries.Add_Root (Builder, Root);
+      Search.Queries.Set_Pattern (Builder, Pattern);
+      Search.Queries.Set_Mode (Builder, Mode);
+      Search.Queries.Set_Base_Directory (Builder, Base);
+      Ignored := Search.Engine.Execute (Search.Queries.Build (Builder), Token'Access, Collect'Access);
+      return Results;
+   end Found;
 
    procedure Content_Search (Root : String) is
       Summary : Search.Engine.Execution_Summary;
@@ -95,9 +130,13 @@ package body Search_Tests.Engine_Tests is
    --  A root named "." or a hidden folder is searched: it was named, so the
    --  hidden-entry rule (which skips dot names met in the walk) does not
    --  apply to it. A "." root once found nothing at all.
+   --
+   --  "." is read from the query's base directory, so the case runs without
+   --  changing the process's current directory -- which every other test,
+   --  and every task, shares.
    procedure Named_Roots (Root : String) is
       Hidden   : constant String := Hostkit.Fs.Join (Root, ".hidden");
-      Previous : constant String := Ada.Directories.Current_Directory;
+      Here     : constant String := Ada.Directories.Current_Directory;
       Summary  : Search.Engine.Execution_Summary;
    begin
       Ada.Directories.Create_Directory (Hidden);
@@ -105,17 +144,77 @@ package body Search_Tests.Engine_Tests is
       Write_File (Hostkit.Fs.Join (Root, "other-needle.txt"), "x");
       Summary := Run (Hidden, "needle", Search.Types.Filename_Mode);
       Assert (Summary.Result_Count = 1, "a hidden folder named as the root is searched");
-      Ada.Directories.Set_Directory (Root);
-      begin
-         Summary := Run (".", "needle", Search.Types.Filename_Mode);
-         Ada.Directories.Set_Directory (Previous);
-      exception
-         when others =>
-            Ada.Directories.Set_Directory (Previous);
-            raise;
-      end;
+      Summary := Run (".", "needle", Search.Types.Filename_Mode, Base => Root);
+      Assert (Summary.State = Search.Types.Completed, "a '.' root read from the base directory is searched");
       Assert (Summary.Result_Count = 1, "a '.' root is searched, its hidden folder still skipped");
+      Summary := Run (".hidden", "needle", Search.Types.Filename_Mode, Base => Root);
+      Assert (Summary.Result_Count = 1, "a relative root is read from the base directory");
+      declare
+         Results : constant Search.Types.Result_Vectors.Vector :=
+           Found (".", "other-needle", Search.Types.Filename_Mode, Base => Root);
+      begin
+         Assert (Natural (Results.Length) = 1, "the '.' root's file is found once");
+         Assert (Hostkit.Fs.Real_Path (Ada.Strings.Unbounded.To_String (Results.First_Element.Path))
+                 = Hostkit.Fs.Real_Path (Hostkit.Fs.Join (Root, "other-needle.txt")),
+                 "the file is the one in the base directory, not the current one");
+      end;
+      Assert (Ada.Directories.Current_Directory = Here, "the current directory is left where it was");
    end Named_Roots;
+
+   --  Path matching reads the path below the root: searching a folder for its
+   --  own name by path finds only what has that name below it.
+   procedure Paths_Below_The_Root (Root : String) is
+      Notes : constant String := Hostkit.Fs.Join (Root, "notes");
+      Inner : constant String := Hostkit.Fs.Join (Notes, "sub");
+   begin
+      Ada.Directories.Create_Directory (Notes);
+      Ada.Directories.Create_Directory (Inner);
+      Write_File (Hostkit.Fs.Join (Notes, "a.txt"), "x");
+      Write_File (Hostkit.Fs.Join (Inner, "b.txt"), "x");
+      Write_File (Hostkit.Fs.Join (Inner, "old-notes.txt"), "x");
+      Assert (Run (Notes, "notes", Search.Types.Path_Mode).Result_Count = 1,
+              "only what has the pattern below the root matches by path, not the root's own name:"
+              & Natural'Image (Run (Notes, "notes", Search.Types.Path_Mode).Result_Count));
+      Assert (Run (Root, "notes", Search.Types.Path_Mode).Result_Count = 5,
+              "from the folder above, every path through notes matches:"
+              & Natural'Image (Run (Root, "notes", Search.Types.Path_Mode).Result_Count));
+      Assert (Run (Notes, "sub", Search.Types.Path_Mode).Result_Count = 3,
+              "a folder below the root and what is in it match its name by path");
+   end Paths_Below_The_Root;
+
+   procedure Test_Paths_Below_The_Root (T : in out AUnit.Test_Cases.Test_Case'Class) is
+      pragma Unreferenced (T);
+      procedure Run_Test is new With_Fixture (Paths_Below_The_Root);
+   begin
+      Run_Test;
+   end Test_Paths_Below_The_Root;
+
+   --  Roots that overlap report what they share once, whichever comes first,
+   --  and the same root named twice is searched once.
+   procedure Overlapping_Roots (Root : String) is
+      Inner : constant String := Hostkit.Fs.Join (Root, "inner");
+   begin
+      Ada.Directories.Create_Directory (Inner);
+      Write_File (Hostkit.Fs.Join (Inner, "needle.txt"), "needle");
+      Write_File (Hostkit.Fs.Join (Root, "needle-top.txt"), "x");
+      Assert (Run (Root, "needle", Search.Types.Filename_Mode, Also_Root => Inner).Result_Count = 2,
+              "an inner root after its outer one adds nothing:"
+              & Natural'Image (Run (Root, "needle", Search.Types.Filename_Mode, Also_Root => Inner).Result_Count));
+      Assert (Run (Inner, "needle", Search.Types.Filename_Mode, Also_Root => Root).Result_Count = 2,
+              "an outer root after its inner one does not find the inner one's again:"
+              & Natural'Image (Run (Inner, "needle", Search.Types.Filename_Mode, Also_Root => Root).Result_Count));
+      Assert (Run (Root, "needle", Search.Types.Combined_Mode, Also_Root => Root).Result_Count = 2,
+              "a root named twice reports each object once");
+      Assert (Run (Root, "inner", Search.Types.Filename_Mode, Also_Root => Inner).Result_Count = 1,
+              "a folder that is one root and inside another is one object");
+   end Overlapping_Roots;
+
+   procedure Test_Overlapping_Roots (T : in out AUnit.Test_Cases.Test_Case'Class) is
+      pragma Unreferenced (T);
+      procedure Run_Test is new With_Fixture (Overlapping_Roots);
+   begin
+      Run_Test;
+   end Test_Overlapping_Roots;
 
    procedure Test_Named_Roots (T : in out AUnit.Test_Cases.Test_Case'Class) is
       pragma Unreferenced (T);
@@ -276,6 +375,36 @@ package body Search_Tests.Engine_Tests is
               "A-umlaut finds only the file with one, not the one with E3 84 84");
    end Unicode_Content;
 
+   --  A regular expression over names takes a code point at a time, as it
+   --  does over content: "." and "[éè]" each take the two bytes of "é". A
+   --  byte at a time, both took only "é"'s first byte and the match failed.
+   procedure Unicode_Name_Regex (Root : String) is
+      E_Acute : constant String := Character'Val (16#C3#) & Character'Val (16#A9#);  --  é
+      E_Grave : constant String := Character'Val (16#C3#) & Character'Val (16#A8#);  --  è
+   begin
+      Write_File (Hostkit.Fs.Join (Root, "caf" & E_Acute & ".txt"), "x");
+      Write_File (Hostkit.Fs.Join (Root, "cafe.txt"), "x");
+      Assert (Run (Root, "^caf.\.txt$", Search.Types.Filename_Mode, Text => Search.Types.Regular_Expression)
+                .Result_Count = 2,
+              "'.' takes one code point of a name, accented or not");
+      Assert (Run (Root, "^caf[" & E_Acute & E_Grave & "]\.txt$", Search.Types.Filename_Mode,
+                   Text => Search.Types.Regular_Expression).Result_Count = 1,
+              "a class of accented letters matches the accented name");
+      Assert (Run (Root, "^caf[" & E_Acute & E_Grave & "]\.txt$", Search.Types.Filename_Mode,
+                   Case_Sensitive => True, Text => Search.Types.Regular_Expression).Result_Count = 1,
+              "and so it does when case matters");
+      Assert (Run (Root, "caf" & E_Acute, Search.Types.Path_Mode, Text => Search.Types.Regular_Expression)
+                .Result_Count = 1,
+              "a path is matched by code point too");
+   end Unicode_Name_Regex;
+
+   procedure Test_Unicode_Name_Regex (T : in out AUnit.Test_Cases.Test_Case'Class) is
+      pragma Unreferenced (T);
+      procedure Run_Test is new With_Fixture (Unicode_Name_Regex);
+   begin
+      Run_Test;
+   end Test_Unicode_Name_Regex;
+
    procedure Test_Unicode_Content (T : in out AUnit.Test_Cases.Test_Case'Class) is
       pragma Unreferenced (T);
       procedure Run_Test is new With_Fixture (Unicode_Content);
@@ -293,5 +422,8 @@ package body Search_Tests.Engine_Tests is
       Register_Routine (T, Test_Link_Loop'Access, "a link loop is walked through at most once");
       Register_Routine (T, Test_Fold'Access, "case folding is per code point");
       Register_Routine (T, Test_Unicode_Content'Access, "case-insensitive content search folds Unicode");
+      Register_Routine (T, Test_Unicode_Name_Regex'Access, "a regular expression matches names by code point");
+      Register_Routine (T, Test_Paths_Below_The_Root'Access, "path matching reads the path below the root");
+      Register_Routine (T, Test_Overlapping_Roots'Access, "overlapping roots report each object once");
    end Register_Tests;
 end Search_Tests.Engine_Tests;

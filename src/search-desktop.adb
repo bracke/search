@@ -7,10 +7,12 @@ with Glfw.Input.Keys;
 with Glfw.Windows;
 
 with Guikit.Draw;
+with Guikit.Input.Pending;
 with Guikit.Item_Grid;
 with Guikit.Layout;
 with Guikit.Text;
 with Guikit.Utf8;
+with Guikit.Utf8.Editing;
 with Guikit.Vulkan;
 with Guikit.Widgets;
 
@@ -29,91 +31,34 @@ procedure Search.Desktop is
 
    Line_Height : constant Positive := 26;
 
-   --  GLFW window subclass: the input callbacks stash events into these pending
-   --  fields, which the main loop drains once per frame. Dirty starts True so the
-   --  first frame draws; the loop redraws only when it is set, so an idle window
-   --  stops re-presenting the same frame.
-   type Search_Window is new Glfw.Windows.Window with record
-      Pending_Text      : Unbounded_String := Null_Unbounded_String;
-      Pending_Escape    : Boolean := False;
-      Pending_Enter     : Boolean := False;
-      Pending_Backspace : Natural := 0;
-      Pending_Up        : Natural := 0;
-      Pending_Down      : Natural := 0;
-      Dirty             : Boolean := True;
-   end record;
+   --  The window keeps its input in one ordered queue (Guikit.Input.Pending),
+   --  which the main loop drains once per frame; its callbacks guard against
+   --  an exception unwinding into GLFW's C code. Its dirty flag starts set so
+   --  the first frame draws; the loop redraws only when it is set, so an idle
+   --  window stops re-presenting the same frame.
+   type Search_Window is new Guikit.Input.Pending.Pending_Window with null record;
 
    type Window_Access is access all Search_Window;
 
    function As_Window (Handle : Window_Access) return Glfw.Windows.Window_Reference is
      (Glfw.Windows.Window_Reference (Handle));
 
-   overriding procedure Character_Entered
-     (Object : not null access Search_Window;
-      Char   : Wide_Wide_Character);
-   overriding procedure Key_Changed
-     (Object   : not null access Search_Window;
-      Key      : Glfw.Input.Keys.Key;
-      Scancode : Glfw.Input.Keys.Scancode;
-      Action   : Glfw.Input.Keys.Action;
-      Mods     : Glfw.Input.Keys.Modifiers);
-
-   overriding procedure Character_Entered
-     (Object : not null access Search_Window;
-      Char   : Wide_Wide_Character)
-   is
-      Code : constant Natural := Wide_Wide_Character'Pos (Char);
+   --  Delete the character before the end of Text -- a code point with the
+   --  combining marks after it, as every guikit text field deletes -- not a
+   --  byte, which would corrupt a multibyte character, nor a bare code point,
+   --  which would leave an accent's mark behind.
+   procedure Backspace (Text : in out Unbounded_String) is
+      Ignored_Cursor : Natural;
+      Raw            : constant String := To_String (Text);
    begin
-      if Code >= Character'Pos (' ') then
-         Append (Object.Pending_Text, Guikit.Utf8.Encode (Code));
-         Object.Dirty := True;
-      end if;
-   end Character_Entered;
-
-   overriding procedure Key_Changed
-     (Object   : not null access Search_Window;
-      Key      : Glfw.Input.Keys.Key;
-      Scancode : Glfw.Input.Keys.Scancode;
-      Action   : Glfw.Input.Keys.Action;
-      Mods     : Glfw.Input.Keys.Modifiers)
-   is
-      use type Glfw.Input.Keys.Action;
-      use type Glfw.Input.Keys.Key;
-      pragma Unreferenced (Scancode, Mods);
-   begin
-      if Action = Glfw.Input.Keys.Release then
-         return;
-      end if;
-      Object.Dirty := True;
-      if Key = Glfw.Input.Keys.Escape then
-         Object.Pending_Escape := True;
-      elsif Key = Glfw.Input.Keys.Enter or else Key = Glfw.Input.Keys.Numpad_Enter then
-         Object.Pending_Enter := True;
-      elsif Key = Glfw.Input.Keys.Backspace then
-         Object.Pending_Backspace := Object.Pending_Backspace + 1;
-      elsif Key = Glfw.Input.Keys.Up then
-         Object.Pending_Up := Object.Pending_Up + 1;
-      elsif Key = Glfw.Input.Keys.Down then
-         Object.Pending_Down := Object.Pending_Down + 1;
-      end if;
-   end Key_Changed;
-
-   --  Drop the last UTF-8 codepoint from Text (a byte-at-a-time delete would
-   --  corrupt a multibyte character).
-   procedure Backspace_Codepoint (Text : in out Unbounded_String) is
-      Raw  : constant String := To_String (Text);
-      Last : Natural := Raw'Last;
-   begin
-      if Raw'Length = 0 then
-         return;
-      end if;
-      while Last > Raw'First
-        and then Character'Pos (Raw (Last)) in 16#80# .. 16#BF#
-      loop
-         Last := Last - 1;
-      end loop;
-      Text := To_Unbounded_String (Raw (Raw'First .. Last - 1));
-   end Backspace_Codepoint;
+      Guikit.Utf8.Editing.Delete_At
+        (Text       => Raw,
+         Cursor     => Raw'Length,
+         Backward   => True,
+         By_Word    => False,
+         New_Text   => Text,
+         New_Cursor => Ignored_Cursor);
+   end Backspace;
 
    Handle       : constant Window_Access := new Search_Window;
    Vulkan       : Guikit.Vulkan.Vulkan_Renderer;
@@ -139,6 +84,8 @@ procedure Search.Desktop is
    Selected     : Natural := 0;
    Last_Frame_W : Glfw.Size := 0;
    Last_Frame_H : Glfw.Size := 0;
+   --  Escape was pressed: the loop ends.
+   Quit         : Boolean := False;
 
    --  Run the search for the current query under Root and rebuild the result
    --  rows / grid items. Synchronous -- the window blocks briefly while it runs.
@@ -378,34 +325,41 @@ begin
       Guikit.Vulkan.Wait_For_Events (1.0);
       Guikit.Vulkan.Poll_Events;
 
-      if Length (Handle.Pending_Text) > 0 then
-         Append (Query, Handle.Pending_Text);
-         Handle.Pending_Text := Null_Unbounded_String;
-      end if;
-      for I in 1 .. Handle.Pending_Backspace loop
-         Backspace_Codepoint (Query);
-      end loop;
-      Handle.Pending_Backspace := 0;
+      --  The input in the order it came: a Backspace typed between two
+      --  letters deletes the first of them, and Enter searches for what was
+      --  typed before it.
+      declare
+         use type Glfw.Input.Keys.Key;
+         use type Guikit.Input.Pending.Event_Kind;
+         Item  : Guikit.Input.Pending.Event;
+         Taken : Boolean;
+      begin
+         loop
+            Handle.Take (Item, Taken);
+            exit when not Taken;
+            if Item.Kind = Guikit.Input.Pending.Character_Input then
+               Append (Query, Guikit.Utf8.Encode (Item.Code));
+            elsif Item.Kind = Guikit.Input.Pending.Key_Input then
+               if Item.Key = Glfw.Input.Keys.Escape then
+                  Quit := True;
+               elsif Item.Key = Glfw.Input.Keys.Enter or else Item.Key = Glfw.Input.Keys.Numpad_Enter then
+                  Run_Search;
+               elsif Item.Key = Glfw.Input.Keys.Backspace then
+                  Backspace (Query);
+               elsif Item.Key = Glfw.Input.Keys.Up then
+                  if Selected > 1 then
+                     Selected := Selected - 1;
+                  end if;
+               elsif Item.Key = Glfw.Input.Keys.Down then
+                  if Selected < Natural (Rows.Length) then
+                     Selected := Selected + 1;
+                  end if;
+               end if;
+            end if;
+         end loop;
+      end;
 
-      if Handle.Pending_Enter then
-         Handle.Pending_Enter := False;
-         Run_Search;
-      end if;
-
-      for I in 1 .. Handle.Pending_Up loop
-         if Selected > 1 then
-            Selected := Selected - 1;
-         end if;
-      end loop;
-      Handle.Pending_Up := 0;
-      for I in 1 .. Handle.Pending_Down loop
-         if Selected < Natural (Rows.Length) then
-            Selected := Selected + 1;
-         end if;
-      end loop;
-      Handle.Pending_Down := 0;
-
-      exit when Handle.Pending_Escape;
+      exit when Quit;
 
       declare
          Frame_W, Frame_H : Glfw.Size;
@@ -416,7 +370,7 @@ begin
          if Natural (Frame_W) /= Natural (Last_Frame_W)
            or else Natural (Frame_H) /= Natural (Last_Frame_H)
          then
-            Handle.Dirty := True;
+            Handle.Mark_Dirty;
             Last_Frame_W := Frame_W;
             Last_Frame_H := Frame_H;
          end if;
@@ -425,7 +379,7 @@ begin
          --  already on screen and the build/submit/present path is skipped.
          if Handle.Dirty or else Guikit.Vulkan.Readback_Enabled (Vulkan) then
             Draw_Frame (Handle, Vulkan, Text);
-            Handle.Dirty := False;
+            Handle.Clear_Dirty;
          end if;
       end;
    end loop;

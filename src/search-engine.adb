@@ -7,6 +7,7 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with GNAT.OS_Lib;
 
 with Hostkit.Fs;
+with Hostkit.Path_Text;
 
 with Regexp;
 with Version.Ignore;
@@ -44,20 +45,6 @@ package body Search.Engine is
          return Path;
    end Base_Name;
 
-   function Relative_To (Root : String; Path : String) return String is
-   begin
-      if Path'Length >= Root'Length and then Path (Path'First .. Path'First + Root'Length - 1) = Root then
-         if Path'Length = Root'Length then
-            return "";
-         elsif Path (Path'First + Root'Length) = GNAT.OS_Lib.Directory_Separator then
-            return Path (Path'First + Root'Length + 1 .. Path'Last);
-         else
-            return Path;
-         end if;
-      end if;
-      return Path;
-   end Relative_To;
-
    function Is_Hidden (Path : String) return Boolean is
       Name : constant String := Base_Name (Path);
    begin
@@ -75,10 +62,17 @@ package body Search.Engine is
    is
    begin
       if Search.Queries.Text_Mode (Query) = Search.Types.Regular_Expression then
+         --  A code point at a time, as content is scanned, so "." and a class
+         --  take a whole "é" in a name. A name that is not UTF-8 (POSIX lets
+         --  a name be any bytes) is matched a byte at a time: in UTF-8 mode
+         --  the matcher would refuse it outright.
          return Regexp.Find_First
            (Regex.Expression,
             Text,
-            (Case_Sensitive => Search.Queries.Case_Sensitive (Query), others => <>)).Status = Regexp.Match_Ok;
+            (Case_Sensitive => Search.Queries.Case_Sensitive (Query),
+             Character_Mode =>
+               (if Regexp.Validate_UTF_8 (Text).Valid then Regexp.UTF_8_Mode else Regexp.ASCII_Mode),
+             others         => <>)).Status = Regexp.Match_Ok;
       elsif Search.Queries.Case_Sensitive (Query) then
          return Ada.Strings.Fixed.Index (Text, Needle) > 0;
       else
@@ -120,32 +114,52 @@ package body Search.Engine is
         (if Search.Queries.Case_Sensitive (Query)
          then Search.Queries.Pattern (Query)
          else Search.Text_Fold.Fold (Search.Queries.Pattern (Query)));
-      --  The directories walked so far, by their resolved path, when links to
-      --  directories are followed: a link back up the tree (a loop) or to a
-      --  folder walked already is then not walked again.
+      --  The directories walked so far, by their resolved path: a link back
+      --  up the tree (a loop), a folder walked already through a link, and a
+      --  root inside another root are then not walked again.
       Walked  : Path_Sets.Set;
+      --  The objects reported so far, by Identity: overlapping roots, or a
+      --  folder met both directly and through a link, report each once.
+      Reported : Path_Sets.Set;
 
-      --  Whether the directory at Path is to be walked now. Only a walk that
-      --  follows links can meet one directory twice, so only that one asks.
-      function First_Walk (Path : String; Is_Link : Boolean) return Boolean is
+      --  Whether the directory at Path is to be walked now.
+      --
+      --  @param Real Its resolved path, "" when that could not be had.
+      --  @param Is_Link Whether Path is a link met in the walk.
+      function First_Walk (Real : String; Is_Link : Boolean) return Boolean is
       begin
-         if Policy /= Search.Types.Follow_All_Symlinks then
-            return True;
+         if Real = "" then
+            --  Unresolvable: a plain folder is walked; a link, which might
+            --  lead anywhere, is not.
+            return not Is_Link;
+         elsif Walked.Contains (Real) then
+            return False;
+         end if;
+         Walked.Insert (Real);
+         return True;
+      end First_Walk;
+
+      --  What an object is, whatever root it was reached from: its folder's
+      --  resolved path and its own name. The last component is not resolved,
+      --  so a link is an object of its own and not the thing it points to.
+      --  A root that is not a link is its own resolved path.
+      function Identity_Of_Root (Path : String) return String is
+         Parent : constant String := Hostkit.Path_Text.Parent (Path);
+         Leaf   : constant String := Hostkit.Path_Text.Leaf (Path);
+      begin
+         if Parent = "" or else Leaf = "" or else not Hostkit.Fs.Is_Link (Path) then
+            declare
+               Real : constant String := Hostkit.Fs.Real_Path (Path);
+            begin
+               return (if Real = "" then Path else Real);
+            end;
          end if;
          declare
-            Real : constant String := Hostkit.Fs.Real_Path (Path);
+            Real_Parent : constant String := Hostkit.Fs.Real_Path (Parent);
          begin
-            if Real = "" then
-               --  Unresolvable: a plain folder is walked; a link, which might
-               --  lead anywhere, is not.
-               return not Is_Link;
-            elsif Walked.Contains (Real) then
-               return False;
-            end if;
-            Walked.Insert (Real);
-            return True;
+            return Hostkit.Fs.Join ((if Real_Parent = "" then Parent else Real_Parent), Leaf);
          end;
-      end First_Walk;
+      end Identity_Of_Root;
 
       procedure Add_Diagnostic (Diagnostic : Search.Types.Diagnostic) is
       begin
@@ -162,11 +176,28 @@ package body Search.Engine is
          end if;
       end Add_Result;
 
-      procedure Visit (Root : String; Rules : Standard.Version.Ignore.Ignore_Rules; Path : String; Depth : Natural) is
-         Search_Handle : Ada.Directories.Search_Type;
-         Dir_Entry         : Ada.Directories.Directory_Entry_Type;
+      --  Walk the folder at Path, Rel below Root, once: its entries are
+      --  visited one level down. Propagates what stops the walk, for Visit
+      --  to report.
+      procedure Walk_Children
+        (Root    : String;
+         Rules   : Standard.Version.Ignore.Ignore_Rules;
+         Path    : String;
+         Rel     : String;
+         Is_Link : Boolean;
+         Depth   : Natural);
+
+      --  Visit the object at Path, Rel below Root ("" for the root itself),
+      --  known as Identity (see Identity_Of_Root), Depth folders down.
+      procedure Visit
+        (Root     : String;
+         Rules    : Standard.Version.Ignore.Ignore_Rules;
+         Path     : String;
+         Rel      : String;
+         Identity : String;
+         Depth    : Natural)
+      is
          Kind          : Ada.Directories.File_Kind;
-         Rel           : constant String := Relative_To (Root, Path);
          Ignored       : Standard.Version.Ignore.Match_Result;
          Name_Match    : Boolean := False;
          Path_Match    : Boolean := False;
@@ -206,8 +237,13 @@ package body Search.Engine is
             if Search.Queries.Mode (Query) in Search.Types.Filename_Mode | Search.Types.Combined_Mode then
                Name_Match := Text_Matches (Base_Name (Path), Query, Regex, Needle);
             end if;
-            if Search.Queries.Mode (Query) in Search.Types.Path_Mode | Search.Types.Combined_Mode then
-               Path_Match := Text_Matches (Path, Query, Regex, Needle);
+            --  The path below the root, not the root's own: searching
+            --  ~/notes for "notes" by path is a search inside it, and the
+            --  root's name is in every path there.
+            if Search.Queries.Mode (Query) in Search.Types.Path_Mode | Search.Types.Combined_Mode
+              and then Rel'Length > 0
+            then
+               Path_Match := Text_Matches (Rel, Query, Regex, Needle);
             end if;
 
             --  A link to a file is read only when the policy follows links to
@@ -219,7 +255,10 @@ package body Search.Engine is
                Content := Search.Content.Scan_File (Path, Query, Needle, Regex);
             end if;
 
-            if Name_Match or else Path_Match or else Content.Match_Count > 0 then
+            if (Name_Match or else Path_Match or else Content.Match_Count > 0)
+              and then not Reported.Contains (Identity)
+            then
+               Reported.Insert (Identity);
                Next_Id := Next_Id + 1;
                Add_Result
                  ((Id           => Next_Id,
@@ -239,15 +278,47 @@ package body Search.Engine is
          end if;
 
          --  A link to a folder is gone through only when the policy follows all
-         --  links, and then each folder once (First_Walk): following links
-         --  blindly recursed without end round a link loop, and walked a
-         --  linked tree inside the root twice.
+         --  links, and every folder is walked once (First_Walk): following
+         --  links blindly recursed without end round a link loop and walked a
+         --  linked tree inside the root twice, and a root inside another root
+         --  was walked under both.
          if Kind = Ada.Directories.Directory
            and then Search.Queries.Recursive (Query)
            and then (Search.Queries.Max_Depth (Query) = 0 or else Depth < Search.Queries.Max_Depth (Query))
            and then (not Is_Link or else Policy = Search.Types.Follow_All_Symlinks)
-           and then First_Walk (Path, Is_Link)
          then
+            Walk_Children (Root, Rules, Path, Rel, Is_Link, Depth);
+         end if;
+      exception
+         when others =>
+            --  A root that cannot be walked fails the search's promise for
+            --  it, which is an error; an entry below it is a warning.
+            declare
+               Code : constant String := (if Depth = 0 then "traversal.root.failed" else "traversal.entry.failed");
+            begin
+               Add_Diagnostic
+                 ((Severity => (if Depth = 0 then Search.Types.Error else Search.Types.Warning),
+                   Code     => To_Unbounded_String (Code),
+                   Path     => To_Unbounded_String (Path),
+                   Message  => To_Unbounded_String (Code)));
+            end;
+      end Visit;
+
+      procedure Walk_Children
+        (Root    : String;
+         Rules   : Standard.Version.Ignore.Ignore_Rules;
+         Path    : String;
+         Rel     : String;
+         Is_Link : Boolean;
+         Depth   : Natural)
+      is
+         Real          : constant String := Hostkit.Fs.Real_Path (Path);
+         --  The folder its entries are named in, for their identities.
+         Folder        : constant String := (if Real = "" then Path else Real);
+         Search_Handle : Ada.Directories.Search_Type;
+         Dir_Entry     : Ada.Directories.Directory_Entry_Type;
+      begin
+         if First_Walk (Real, Is_Link) then
             Ada.Directories.Start_Search
               (Search    => Search_Handle,
                Directory => Path,
@@ -261,7 +332,14 @@ package body Search.Engine is
                   Child_Name : constant String := Ada.Directories.Simple_Name (Dir_Entry);
                begin
                   if Child_Name /= "." and then Child_Name /= ".." then
-                     Visit (Root, Rules, Ada.Directories.Full_Name (Dir_Entry), Depth + 1);
+                     Visit
+                       (Root     => Root,
+                        Rules    => Rules,
+                        Path     => Ada.Directories.Full_Name (Dir_Entry),
+                        Rel      =>
+                          (if Rel = "" then Child_Name else Rel & GNAT.OS_Lib.Directory_Separator & Child_Name),
+                        Identity => Hostkit.Fs.Join (Folder, Child_Name),
+                        Depth    => Depth + 1);
                   end if;
                end;
                exit when Summary.State = Search.Types.Cancelled;
@@ -273,12 +351,33 @@ package body Search.Engine is
             if Ada.Directories.More_Entries (Search_Handle) then
                Ada.Directories.End_Search (Search_Handle);
             end if;
-            Add_Diagnostic
-              ((Severity => Search.Types.Warning,
-                Code     => To_Unbounded_String ("traversal.entry.failed"),
-                Path     => To_Unbounded_String (Path),
-                Message  => To_Unbounded_String ("traversal.entry.failed")));
-      end Visit;
+            raise;
+      end Walk_Children;
+
+      --  Search the root at Root_Text, absolute. A root whose ignore rules
+      --  cannot be read cannot be walked either, and is reported as such.
+      procedure Walk_Root (Root_Text : String) is
+         Rules : Standard.Version.Ignore.Ignore_Rules;
+      begin
+         begin
+            Rules := Standard.Version.Ignore.Load (Root_Text);
+         exception
+            when others =>
+               Add_Diagnostic
+                 ((Severity => Search.Types.Error,
+                   Code     => To_Unbounded_String ("traversal.root.failed"),
+                   Path     => To_Unbounded_String (Root_Text),
+                   Message  => To_Unbounded_String ("traversal.root.failed")));
+               return;
+         end;
+         Visit
+           (Root     => Root_Text,
+            Rules    => Rules,
+            Path     => Root_Text,
+            Rel      => "",
+            Identity => Identity_Of_Root (Root_Text),
+            Depth    => 0);
+      end Walk_Root;
 
       task type Traversal_Worker is
          entry Run;
@@ -300,19 +399,15 @@ package body Search.Engine is
                   end loop;
                else
                   if Search.Queries.Text_Mode (Query) = Search.Types.Regular_Expression then
-                     Regex := Regexp.Compile (Search.Queries.Pattern (Query));
+                     Regex := Regexp.Compile (Search.Queries.Pattern (Query), Character_Mode => Regexp.UTF_8_Mode);
                   else
                      Regex := Regexp.Compile_Literal (Search.Queries.Pattern (Query));
                   end if;
 
                   for Root of Search.Queries.Roots (Query) loop
-                     declare
-                        Root_Text : constant String := To_String (Root);
-                        Rules     : constant Standard.Version.Ignore.Ignore_Rules :=
-                          Standard.Version.Ignore.Load (Root_Text);
-                     begin
-                        Visit (Root_Text, Rules, Root_Text, 0);
-                     end;
+                     --  Absolute, so every path below it is read from it,
+                     --  and a relative root from the query's base folder.
+                     Walk_Root (Search.Queries.Resolved_Root (Query, To_String (Root)));
                      exit when Summary.State = Search.Types.Cancelled;
                   end loop;
                end if;

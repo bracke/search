@@ -1,6 +1,9 @@
 with Ada.Directories;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 
+with Hostkit.Fs;
+with Hostkit.Path_Text;
+
 with Regexp;
 
 package body Search.Queries is
@@ -74,6 +77,11 @@ package body Search.Queries is
       Builder.Data.Max_File_Size := Bytes;
    end Set_Max_File_Size;
 
+   procedure Set_Base_Directory (Builder : in out Query_Builder; Directory : String) is
+   begin
+      Builder.Data.Base_Directory := To_Unbounded_String (Directory);
+   end Set_Base_Directory;
+
    function Build (Builder : Query_Builder) return Query is
    begin
       return (Data => Builder.Data);
@@ -91,6 +99,19 @@ package body Search.Queries is
    function Case_Sensitive (Value : Query) return Boolean is (Value.Data.Case_Sensitive);
    function Content_Context_Lines (Value : Query) return Natural is (Value.Data.Content_Context_Lines);
    function Max_File_Size (Value : Query) return Long_Long_Integer is (Value.Data.Max_File_Size);
+   function Base_Directory (Value : Query) return String is (To_String (Value.Data.Base_Directory));
+
+   function Resolved_Root (Value : Query; Root : String) return String is
+      Here : constant String := Hostkit.Fs.Current_Directory;
+      Base : constant String :=
+        (if Length (Value.Data.Base_Directory) = 0 then Here
+         else Hostkit.Path_Text.Absolute (To_String (Value.Data.Base_Directory), Here));
+   begin
+      if Root = "" then
+         return "";
+      end if;
+      return Hostkit.Path_Text.Absolute (Root, Base);
+   end Resolved_Root;
 
    function Make_Diagnostic
      (Code : String;
@@ -116,7 +137,8 @@ package body Search.Queries is
       end if;
 
       for Root of Value.Data.Roots loop
-         if To_String (Root)'Length = 0 or else not Ada.Directories.Exists (To_String (Root)) then
+         if To_String (Root)'Length = 0 or else not Ada.Directories.Exists (Resolved_Root (Value, To_String (Root)))
+         then
             Diagnostics.Append
               (Search.Types.Diagnostic'
                  (Severity => Search.Types.Error,
@@ -128,7 +150,8 @@ package body Search.Queries is
 
       if Value.Data.Text_Mode = Search.Types.Regular_Expression and then Length (Value.Data.Pattern) > 0 then
          declare
-            Compiled : constant Regexp.Compile_Result := Regexp.Compile (To_String (Value.Data.Pattern));
+            Compiled : constant Regexp.Compile_Result :=
+              Regexp.Compile (To_String (Value.Data.Pattern), Character_Mode => Regexp.UTF_8_Mode);
          begin
             if Compiled.Status /= Regexp.Compile_Ok then
                Diagnostics.Append

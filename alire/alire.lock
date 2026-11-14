@@ -4,15 +4,6 @@
 [solution.context]
 solved = true
 [[solution.state]]
-crate = "a11y"
-fulfilment = "linked"
-pinned = false
-transitivity = "direct"
-versions = "~0.1.0-dev"
-[solution.state.link]
-lockfiled = true
-path = "../a11ykit"
-[[solution.state]]
 crate = "cryptolib"
 fulfilment = "linked"
 pinned = false
@@ -55,15 +46,6 @@ website = "https://github.com/the-dark-factory/vulkan-ada"
 [solution.state.release.origin]
 commit = "d3fac5d7df41b91c5a989edf1f55b6a1162b90ad"
 url = "git+https://github.com/the-dark-factory/vulkan-ada.git"
-[[solution.state]]
-crate = "files"
-fulfilment = "linked"
-pinned = false
-transitivity = "direct"
-versions = "*"
-[solution.state.link]
-lockfiled = true
-path = "../files"
 [[solution.state]]
 crate = "gnat_native"
 fulfilment = "solved"
@@ -124,7 +106,7 @@ crate = "hostkit"
 fulfilment = "linked"
 pinned = false
 transitivity = "direct"
-versions = "~0.1.0-dev"
+versions = "*"
 [solution.state.link]
 lockfiled = true
 path = "../hostkit"
